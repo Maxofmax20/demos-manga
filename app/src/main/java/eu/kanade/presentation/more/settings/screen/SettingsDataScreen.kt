@@ -593,10 +593,16 @@ object SettingsDataScreen : SearchableSettings {
 
         return if (syncServiceType != SyncManager.SyncService.NONE) {
             basePreferences + getAdditionalPreferences(syncPreferences) +
-                (if (syncServiceType == SyncManager.SyncService.SYNCYOMI) listOf(
-                    getRemoteCommandsPref(syncPreferences),
-                    getRemoteSyncPref(syncPreferences),
-                ) else emptyList())
+                (
+                    if (syncServiceType == SyncManager.SyncService.SYNCYOMI) {
+                        listOf(
+                            getRemoteCommandsPref(syncPreferences),
+                            getRemoteSyncPref(syncPreferences),
+                        )
+                    } else {
+                        emptyList()
+                    }
+                )
         } else {
             basePreferences
         }

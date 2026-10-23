@@ -74,7 +74,6 @@ import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.BackupRestoreStatus
 import eu.kanade.tachiyomi.data.LibraryUpdateStatus
 import eu.kanade.tachiyomi.data.SyncStatus
-import eu.kanade.tachiyomi.data.sync.DemosRemoteSyncJob
 import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
@@ -82,6 +81,7 @@ import eu.kanade.tachiyomi.data.connections.discord.DiscordRPCService
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
+import eu.kanade.tachiyomi.data.sync.DemosRemoteSyncJob
 import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
 import eu.kanade.tachiyomi.data.updater.AppUpdateJob
 import eu.kanade.tachiyomi.extension.api.ExtensionApi
