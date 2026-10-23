@@ -1,0 +1,25 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "dev-4183822d2c4481919419deea012dd465",
+  "version": "1.0.1",
+  "description": "Private, read-only access to your synchronized Demos Manga library metadata.",
+  "author": {
+    "name": "App developer"
+  },
+  "extensions": {
+    "com.openai": {
+      "apps": "./.app.json",
+      "interface": {
+        "capabilities": [],
+        "category": "Other",
+        "defaultPrompt": null,
+        "developerName": "App developer",
+        "displayName": "Demos Manga Cloud",
+        "longDescription": "Private, read-only access to your synchronized Demos Manga library metadata.",
+        "shortDescription": "Private, read-only access to your synchronized Demos Manga library metadata.",
+        "websiteURL": "https://demos-manga-cloud.adoredsmile128.chatgpt.site"
+      },
+      "requires_local_executor": false
+    }
+  }
+}
