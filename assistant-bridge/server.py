@@ -17,6 +17,7 @@ from mcp.server.mcpserver import MCPServer
 import command_queue
 import extension_inventory
 import remote_sync
+import categories
 from chapters_metadata import chapters_from_backup
 
 DATA_DIR = Path(os.getenv("MANGA_DATA_DIR", "/var/lib/demos-manga"))
@@ -463,7 +464,12 @@ def device_commands(request: Request, response: Response):
     if device_id is None:
         raise HTTPException(401, "Unauthorized")
     response.headers["Cache-Control"] = "no-store"
-    return command_queue.pending(COMMAND_DB, device_id)
+    commands = command_queue.pending(COMMAND_DB, device_id)
+    try:
+        categories.snapshot(COMMAND_DB, device_id, True)
+    except (ValueError, PermissionError):
+        commands = [c for c in commands if c['action'] != 'category_changes']
+    return commands
 
 
 @app.post("/api/device/commands/{command_id}/result")
@@ -532,6 +538,138 @@ async def sync_event(request: Request):
     # Compatibility endpoint: do not retain device models or message bodies.
     return Response(status_code=204)
 
+
+
+# KMK -->
+def category_device(device_id):
+    if device_id not in [d["id"] for d in _device_keys() if d["expires"] > time.time()]:
+        raise HTTPException(404, "Paired device not found")
+    categories.initialize(COMMAND_DB)
+    command_queue.initialize(COMMAND_DB)
+
+
+@app.post("/api/device/category-snapshot")
+async def device_category_snapshot(request: Request):
+    device_id = _device_identity(request.headers.get("X-API-Token", ""))
+    if device_id is None:
+        raise HTTPException(401, "Unauthorized")
+    raw = await request.body()
+    if len(raw) > 8 * 1024 * 1024:
+        raise HTTPException(413, "Metadata snapshot too large")
+    try:
+        return categories.store(COMMAND_DB, device_id, json.loads(raw))
+    except (ValueError, TypeError, KeyError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.get("/api/assistant/categories")
+def assistant_categories(device_id: str, category_id: str | None = None):
+    category_device(device_id)
+    try:
+        result = categories.snapshot(COMMAND_DB, device_id)
+        if category_id is not None:
+            matches = [c for c in result['categories'] if c['id'] == category_id]
+            if not matches:
+                raise HTTPException(404, "Category not found")
+            result['categories'] = matches
+        return result
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@app.get("/api/assistant/category-library")
+def assistant_category_library(device_id: str, offset: int = 0, limit: int = 100,
+                               category_id: str | None = None, manga_id: str | None = None, query: str = ""):
+    category_device(device_id)
+    try:
+        return categories.page(COMMAND_DB, device_id, offset, limit, category_id, manga_id, query)
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@app.post("/api/assistant/category-preview")
+async def assistant_category_preview(request: Request):
+    raw = await request.body()
+    if len(raw) > 150000:
+        raise HTTPException(413, "Preview too large")
+    try:
+        body = json.loads(raw)
+        if not isinstance(body, dict) or not set(body) <= {'device_id','expected_revision','changes','category_order'}:
+            raise ValueError("Invalid preview fields")
+        category_device(body['device_id'])
+        return categories.preview(COMMAND_DB, body['device_id'], body['expected_revision'], body.get('changes', []), body.get('category_order'))
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except (ValueError, TypeError, KeyError) as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@app.post("/api/assistant/category-apply", status_code=202)
+async def assistant_category_apply(request: Request):
+    try:
+        raw = await request.body()
+        if len(raw) > 1000:
+            raise ValueError('Apply request too large')
+        body = json.loads(raw)
+        if not isinstance(body,dict) or set(body) != {'device_id','preview_id','confirmed'}:
+            raise ValueError('Invalid apply fields')
+        category_device(body['device_id'])
+        return categories.apply(COMMAND_DB, body['device_id'], body['preview_id'], body['confirmed'], command_queue)
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except (ValueError, TypeError, KeyError) as exc:
+        raise HTTPException(409, str(exc)) from exc
+@app.get("/api/assistant/category-history")
+def assistant_category_history(device_id: str, offset: int = 0, limit: int = 50):
+    import sqlite3
+    category_device(device_id)
+    try:
+        categories.snapshot(COMMAND_DB,device_id)
+        if not 0 <= offset <= 1000000 or not 1 <= limit <= 100:
+            raise ValueError('Invalid history pagination')
+        with sqlite3.connect(COMMAND_DB) as db:
+            rows=db.execute('SELECT id,created,command_id FROM category_previews WHERE device=? ORDER BY created DESC,id LIMIT ? OFFSET ?',(device_id,limit,offset)).fetchall()
+        return {'items':[{'preview_id':i,'created':created,'command':command_queue.lookup(COMMAND_DB,cid) if cid else None} for i,created,cid in rows], 'offset':offset,'limit':limit}
+    except PermissionError as exc:
+        raise HTTPException(403,str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(409,str(exc)) from exc
+
+
+@app.post("/api/assistant/category-undo-preview")
+async def assistant_category_undo(request: Request):
+    import sqlite3
+    try:
+        body=await request.json()
+        if not isinstance(body,dict) or set(body)!={'device_id','preview_id','expected_revision'}:
+            raise ValueError('Invalid undo preview')
+        device=body['device_id'];category_device(device)
+        snap=categories.snapshot(COMMAND_DB,device,True)
+        with sqlite3.connect(COMMAND_DB) as db:
+            row=db.execute('SELECT data,command_id FROM category_previews WHERE id=? AND device=?',(body['preview_id'],device)).fetchone()
+        if not row or not row[1] or command_queue.lookup(COMMAND_DB,row[1])['state']!='completed':
+            raise ValueError('Only a phone-confirmed completed change can be undone')
+        proposal=json.loads(row[0])
+        if proposal['category_order'] is not None:
+            raise ValueError('Category reorder undo is not yet supported; preview an explicit reorder instead')
+        changes=[]
+        for c in proposal['changes']:
+            current=categories.page(COMMAND_DB,device,manga_id=c['manga_id'])['items']
+            if len(current)!=1 or categories.category_ids(current[0]['category_ids'])!=categories.category_ids(c['after']):
+                raise ValueError('A later phone edit conflicts with undo')
+            changes.append({'manga_id':c['manga_id'],'category_ids':c['before'],'mode':'replace'})
+        return categories.preview(COMMAND_DB,device,body['expected_revision'],changes)
+    except PermissionError as exc:
+        raise HTTPException(403,str(exc)) from exc
+    except (ValueError,TypeError,KeyError) as exc:
+        raise HTTPException(409,str(exc)) from exc
+
+
+# KMK <--
 
 # Mount the SDK's standards-based Streamable HTTP endpoint at /mcp.
 app.mount("/", mcp.streamable_http_app())

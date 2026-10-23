@@ -1,9 +1,9 @@
 const BASE='https://manga.demos25.me';
-const VERSION='1.3.0';
+const VERSION='1.4.0';
 const TOOLS=[{name:'library_stats',description:'Read aggregate progress and sync status from your own synchronized manga library.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}},{name:'search_library',description:'Search your own permitted library metadata; no chapters, images, settings or raw backups.',inputSchema:{type:'object',properties:{query:{type:'string',maxLength:200,default:''},unread_only:{type:'boolean',default:false},limit:{type:'integer',minimum:1,maximum:100,default:25}},additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}}];
 const safeTool=(name,description,properties,required=[],readOnly=true)=>({name,description,inputSchema:{type:'object',properties,required,additionalProperties:false},annotations:{readOnlyHint:readOnly,destructiveHint:!readOnly,openWorldHint:false}});
 const HEX24=/^[0-9a-f]{24}$/;const HEX32=/^[0-9a-f]{32}$/;const DEVICE=/^[0-9a-f]{16}$/;
-const ACTIONS=new Set(['mark_read','library_set','library_add','refresh_chapters','set_setting','download_chapter','open_reader','open_screen','install_extension','uninstall_extension']);
+const ACTIONS=new Set(['category_changes','mark_read','library_set','library_add','refresh_chapters','set_setting','download_chapter','open_reader','open_screen','install_extension','uninstall_extension']);
 TOOLS.push(
  safeTool('list_paired_devices','List your own paired phone IDs; credentials are never exposed.',{}),
  safeTool('list_manga_chapters','Get chapter IDs and read flags for a library title.',{manga_id:{type:'string',pattern:'^[0-9a-f]{24}$'},offset:{type:'integer',minimum:0,maximum:100000,default:0},limit:{type:'integer',minimum:1,maximum:100,default:100}},['manga_id']),
@@ -15,6 +15,31 @@ TOOLS.push(
  safeTool('request_device_sync','Request a phone-side library and extension inventory sync. Requires one-time unattended-sync opt-in in Android settings; no per-sync phone approval.',{device_id:{type:'string',pattern:'^[0-9a-f]{16}$'}},['device_id'],false),
  safeTool('get_device_sync_status','Check pending, running, completed, failed, expired, or cancelled phone-side sync status.',{request_id:{type:'string',pattern:'^[0-9a-f]{32}$'}},['request_id'])
 );
+const categoryDevice={device_id:{type:'string',pattern:'^[0-9a-f]{16}$'}};
+const paging={offset:{type:'integer',minimum:0,maximum:1000000,default:0},limit:{type:'integer',minimum:1,maximum:100,default:100}};
+const categoryId={type:'string',pattern:'^(0|[1-9][0-9]{0,18})$'};
+const revisionField={type:'string',pattern:'^[0-9a-f]{64}$'};
+const previewField={type:'string',pattern:'^[0-9a-f]{32}$'};
+const changeSchema={type:'object',properties:{manga_id:{type:'string',pattern:'^[0-9a-f]{24}$'},category_ids:{type:'array',items:{type:'string',pattern:'^[1-9][0-9]{0,18}$'},uniqueItems:true,maxItems:500},mode:{type:'string',enum:['add','remove','replace']}},required:['manga_id','category_ids','mode'],additionalProperties:false};
+const CATEGORY_READS=new Set(['list_categories','get_category','list_category_manga','get_manga_categories','list_library','list_uncategorized_manga','get_category_change_history']);
+const CATEGORY_WRITES=new Set(['preview_category_changes','reorder_categories','apply_category_changes','set_manga_categories','bulk_set_manga_categories','undo_category_changes']);
+TOOLS.push(
+ safeTool('list_categories','Read exact Android category IDs, Unicode names, ordering and visibility. Requires device read scope and an uploaded snapshot.',categoryDevice,['device_id']),
+ safeTool('get_category','Read an existing category by stable ID; 0 is Android Default.',{...categoryDevice,category_id:categoryId},['device_id','category_id']),
+ safeTool('list_category_manga','Paginate titles and memberships within an existing category.',{...categoryDevice,...paging,category_id:categoryId},['device_id','category_id']),
+ safeTool('get_manga_categories','Read current memberships for a stable manga ID.',{...categoryDevice,manga_id:{type:'string',pattern:'^[0-9a-f]{24}$'}},['device_id','manga_id']),
+ safeTool('list_library','Paginate the complete permitted Android library with category memberships. Follow next_offset beyond 100 titles.',{...categoryDevice,...paging,query:{type:'string',maxLength:200}},['device_id']),
+ safeTool('list_uncategorized_manga','Paginate Android Default: titles with no explicit category membership.',{...categoryDevice,...paging},['device_id']),
+ safeTool('preview_category_changes','Prepare a revision-bound preview listing every affected title and before/after membership. Does not edit Android.',{...categoryDevice,expected_revision:revisionField,changes:{type:'array',items:changeSchema,maxItems:500,minItems:1}},['device_id','expected_revision','changes'],false),
+ safeTool('reorder_categories','Preview an exact order of all non-system category IDs; Default is never moved. Apply the returned preview separately.',{...categoryDevice,expected_revision:revisionField,category_order:{type:'array',items:categoryId,uniqueItems:true,maxItems:500}},['device_id','expected_revision','category_order'],false),
+ ...['apply_category_changes','set_manga_categories','bulk_set_manga_categories'].map(name=>safeTool(name,'Queue only an already-reviewed category preview after exact owner approval. Android approval and a fresh revision check are still required; never claim a queued request succeeded.',{...categoryDevice,preview_id:previewField,confirmed:{type:'boolean',const:true}},['device_id','preview_id','confirmed'],false)),
+ safeTool('get_category_change_history','Read paginated category preview and command history, with actual pending/completed/failed states.',{...categoryDevice,...paging},['device_id']),
+ safeTool('undo_category_changes','Preview reversing a completed membership change. Rejects conflicting later edits. Apply this new preview separately with approval.',{...categoryDevice,preview_id:previewField,expected_revision:revisionField},['device_id','preview_id','expected_revision'],false)
+);
+for(const tool of TOOLS){
+ if(['preview_category_changes','reorder_categories','undo_category_changes'].includes(tool.name))tool.annotations.destructiveHint=false;
+ if(['apply_category_changes','set_manga_categories','bulk_set_manga_categories'].includes(tool.name))tool.annotations.idempotentHint=true;
+}
 const HEADERS={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{...HEADERS,'Content-Type':'application/json; charset=utf-8'}});
 const fail=message=>({content:[{type:'text',text:message}],isError:true});
@@ -22,6 +47,20 @@ export function argumentsFor(name,args){
  if(!args||typeof args!=='object'||Array.isArray(args))throw Error('Arguments must be an object.');
  const tool=TOOLS.find(t=>t.name===name);if(!tool)throw Error('Unknown library tool.');
  for(const key of Object.keys(args))if(!(key in tool.inputSchema.properties))throw Error('Unsupported argument: '+key);
+ if(CATEGORY_READS.has(name)||CATEGORY_WRITES.has(name)){
+  if(!DEVICE.test(args.device_id))throw Error('Valid paired device ID required');
+  for(const key of tool.inputSchema.required??[])if(args[key]===undefined)throw Error('Missing '+key);
+  if(args.expected_revision!==undefined&&!/^[0-9a-f]{64}$/.test(args.expected_revision))throw Error('Invalid category revision');
+  if(args.preview_id!==undefined&&!HEX32.test(args.preview_id))throw Error('Invalid preview ID');
+  if(args.category_id!==undefined&&!/^(0|[1-9][0-9]{0,18})$/.test(args.category_id))throw Error('Invalid category ID');
+  if(args.manga_id!==undefined&&!HEX24.test(args.manga_id))throw Error('Invalid manga ID');
+  if(args.confirmed!==undefined&&args.confirmed!==true)throw Error('Explicit approval required');
+  if(args.offset!==undefined&&(!Number.isInteger(args.offset)||args.offset<0||args.offset>1000000))throw Error('Invalid offset');
+  if(args.limit!==undefined&&(!Number.isInteger(args.limit)||args.limit<1||args.limit>100))throw Error('Invalid limit');
+  if(args.query!==undefined&&(typeof args.query!=='string'||args.query.length>200))throw Error('Invalid query');
+  if(args.changes!==undefined&&(!Array.isArray(args.changes)||args.changes.length<1||args.changes.length>500))throw Error('Invalid change batch');
+  return args;
+ }
  if(name==='library_stats'||name==='list_paired_devices')return {};
  if(name==='list_manga_chapters'){
   if(!HEX24.test(args.manga_id)||!Number.isInteger(args.offset??0)||(args.offset??0)<0||(args.offset??0)>100000||!Number.isInteger(args.limit??100)||(args.limit??100)<1||(args.limit??100)>100)throw Error('Invalid chapter query');
@@ -47,6 +86,7 @@ export function argumentsFor(name,args){
   return {device_id:args.device_id,action:name,args:{package_name}};
  }
  if(name==='request_manga_action'){
+  if(args.action==='category_changes')throw Error('Use the dedicated category preview and apply tools.');
   if(!DEVICE.test(args.device_id)||!ACTIONS.has(args.action)||args.confirmed!==true||!args.args||typeof args.args!=='object'||Array.isArray(args.args)||JSON.stringify(args.args).length>1000)throw Error('Explicit authorization and valid action parameters required');
   return {device_id:args.device_id,action:args.action,args:args.args};
  }
@@ -66,6 +106,28 @@ export function metadata(name,data){
   if(!HEX32.test(data?.request_id)||!DEVICE.test(data?.device_id)||!states.includes(data.state)||!integer(data.expires)||!integer(data.updated))
     throw Error('Invalid remote sync status');
   return {request_id:data.request_id,device_id:data.device_id,state:data.state,updated:data.updated,expires:data.expires};
+ }
+ if(CATEGORY_READS.has(name)||CATEGORY_WRITES.has(name)){
+  if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Invalid category response');
+  const allowed=['device_id','revision','updated','categories','items','total','offset','limit','next_offset','preview_id','expected_revision','changes','category_order','state','expires','command_id','action'];
+  const safe={};for(const key of allowed)if(data[key]!==undefined)safe[key]=data[key];
+  const cid=v=>typeof v==='string'&&/^(0|[1-9][0-9]{0,18})$/.test(v);
+  const ids=v=>Array.isArray(v)&&v.length<=500&&v.every(cid)&&new Set(v).size===v.length;
+  const text=v=>typeof v==='string'&&v.length<=1000;
+  const book=m=>{if(!HEX24.test(m?.id)||!text(m.title)||!ids(m.category_ids))throw Error('Invalid category manga metadata');return {id:m.id,title:m.title,category_ids:m.category_ids};};
+  if(data.categories!==undefined){
+   if(!Array.isArray(data.categories)||data.categories.length>500)throw Error('Invalid category list');
+   safe.categories=data.categories.map(c=>{if(!cid(c?.id)||!text(c.name)||!Number.isSafeInteger(c.order)||typeof c.hidden!=='boolean'||typeof c.flags!=='string')throw Error('Invalid category metadata');return {id:c.id,name:c.name,order:c.order,hidden:c.hidden,flags:c.flags};});
+  }
+  if(data.items!==undefined){
+   if(!Array.isArray(data.items)||data.items.length>100)throw Error('Invalid category page');
+   safe.items=name==='get_category_change_history'?data.items.map(h=>({preview_id:h.preview_id,created:h.created,command:h.command?{command_id:h.command.command_id,state:h.command.state,expires:h.command.expires,device_id:h.command.device_id,action:h.command.action}:null})):data.items.map(book);
+  }
+  if(data.changes!==undefined){
+   if(!Array.isArray(data.changes)||data.changes.length>500)throw Error('Invalid preview');
+   safe.changes=data.changes.map(c=>{if(!HEX24.test(c?.manga_id)||!text(c.title)||!ids(c.before)||!ids(c.after))throw Error('Invalid membership change');return {manga_id:c.manga_id,title:c.title,before:c.before,after:c.after};});
+  }
+  return safe;
  }
  if(name==='list_paired_devices'){
   if(!Array.isArray(data)||data.length>3)throw Error('Invalid paired devices response');
@@ -98,9 +160,20 @@ export async function backend(path,env,{method='GET',payload,fetcher=(...args)=>
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
  try{
   const response=await fetcher(BASE+path,{method,redirect:'manual',headers:{Authorization:'Bearer '+env.MANGA_MCP_TOKEN,Accept:'application/json','User-Agent':'Demos-Manga-Cloud/1.3',...(payload!==undefined?{'Content-Type':'application/json'}:{})},...(payload!==undefined?{body:JSON.stringify(payload)}:{}),signal:controller.signal});
+  if(response.status===403){
+   let detail;try{detail=(await response.clone().json()).detail;}catch{}
+   if(detail==='Required phone scope is disabled or revoked')throw Error('Required phone scope is disabled or revoked. Enable the relevant permission on Android and refresh the category snapshot.');
+  }
   if(response.status===401||response.status===403)throw Error('Backend authorization rejected. The owner must check the protected connection and edge policy.');
   if(response.status>=300&&response.status<400)throw Error('Backend redirected the request; credentials were not forwarded.');
-  if(!response.ok)throw Error('Backend returned HTTP '+response.status+'. No write was retried.');
+  if(!response.ok){
+   if([400,403,404,409].includes(response.status)){
+    let detail;try{detail=(await response.json()).detail;}catch{}
+    const safe=['Category data unavailable','Required phone scope','Revision conflict','Category snapshot is stale','Preview expired','Unknown category','Manga is missing','Preview not found','Explicit approval','Paired device not found','A later phone edit','Only a phone-confirmed','Category reorder undo','Too many','Invalid','Empty preview','Use batches','Reorder must'];
+    if(typeof detail==='string'&&detail.length<=500&&safe.some(prefix=>detail.startsWith(prefix)))throw Error(detail+' No write was retried.');
+   }
+   throw Error('Backend returned HTTP '+response.status+'. No write was retried.');
+  }
   const raw=await response.text();if(raw.length>512000)throw Error('Backend response exceeds the metadata limit.');
   return JSON.parse(raw);
  }catch(error){
@@ -113,7 +186,17 @@ export async function execute(name,args,env,fetcher){
  try{
   args=argumentsFor(name,args);
   let path,method='GET',payload;
-  if(name==='library_stats')path='/api/assistant/stats';
+  if(CATEGORY_READS.has(name)){
+   const params={...args};
+   if(name==='list_uncategorized_manga')params.category_id='0';
+   path=(name==='list_categories'||name==='get_category'?'/api/assistant/categories':name==='get_category_change_history'?'/api/assistant/category-history':'/api/assistant/category-library')+'?'+new URLSearchParams(params);
+  }else if(CATEGORY_WRITES.has(name)){
+   method='POST';payload={...args};
+   if(['apply_category_changes','set_manga_categories','bulk_set_manga_categories'].includes(name))path='/api/assistant/category-apply';
+   else if(name==='undo_category_changes')path='/api/assistant/category-undo-preview';
+   else {path='/api/assistant/category-preview';if(name==='reorder_categories')payload.changes=[];}
+  }
+  else if(name==='library_stats')path='/api/assistant/stats';
   else if(name==='search_library')path='/api/assistant/search?'+new URLSearchParams({query:args.query,unread_only:String(args.unread_only),limit:String(args.limit)});
   else if(name==='list_paired_devices')path='/api/assistant/devices';
   else if(name==='list_manga_chapters')path='/api/assistant/chapters?'+new URLSearchParams({manga_id:args.manga_id,offset:String(args.offset),limit:String(args.limit)});
@@ -146,8 +229,8 @@ export default {async fetch(request,env){
  if(path!=='/mcp')return json({error:'Not found'},404);
  if(request.method!=='POST')return json({error:'Use JSON-RPC POST'},405);
  if(!request.headers.get('content-type')?.includes('application/json'))return json({error:'Use application/json'},415);
- if(Number(request.headers.get('content-length')??0)>16000)return json({error:'Request too large'},413);
- const raw=await request.text();if(raw.length>16000)return json({error:'Request too large'},413);
+ if(Number(request.headers.get('content-length')??0)>160000)return json({error:'Request too large'},413);
+ const raw=await request.text();if(raw.length>160000)return json({error:'Request too large'},413);
  let body;try{body=JSON.parse(raw);}catch{return json({jsonrpc:'2.0',id:null,error:{code:-32700,message:'Invalid JSON'}});}
  if(!body||Array.isArray(body)||body.jsonrpc!=='2.0')return json({jsonrpc:'2.0',id:null,error:{code:-32600,message:'Invalid request'}});
  const id=body.id??null,method=body.method;

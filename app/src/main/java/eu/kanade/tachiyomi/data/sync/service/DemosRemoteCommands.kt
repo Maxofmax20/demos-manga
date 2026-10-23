@@ -1,5 +1,8 @@
 package eu.kanade.tachiyomi.data.sync.service
 
+// KMK -->
+
+import android.app.Application
 import android.content.Context
 import android.content.Intent
 import eu.kanade.domain.chapter.interactor.SetReadStatus
@@ -22,6 +25,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonPrimitive
@@ -30,10 +34,12 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import tachiyomi.core.common.Constants
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.repository.MangaRepository
+import tachiyomi.i18n.kmk.KMR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.security.MessageDigest
@@ -60,6 +66,11 @@ object DemosRemoteCommands {
         fun describe(): String {
             val name = args["package_name"]?.jsonPrimitive?.content ?: ""
             return when (action) {
+                "category_changes" -> Injekt.get<Application>().stringResource(
+                    KMR.strings.demos_category_approve_preview,
+                    args["preview_id"]?.jsonPrimitive?.content.orEmpty(),
+                    (args["changes"] as? JsonArray)?.size ?: 0,
+                )
                 "mark_read" -> "Mark selected chapters as ${if (args["read"]?.jsonPrimitive?.boolean == true) "read" else "unread"}?"
                 "library_set" -> "${if (args["favorite"]?.jsonPrimitive?.boolean == true) "Add this manga to" else "Remove this manga from"} your library?"
                 "refresh_chapters" -> "Refresh chapter updates for the selected manga?"
@@ -125,6 +136,7 @@ object DemosRemoteCommands {
     suspend fun pending(prefs: SyncPreferences): List<Command> {
         val (host, headers) = credentials(prefs)
         runCatching { reportExtensions(host, headers) }
+        DemosCategoryControl.report(prefs)
         val request = GET(url = "$host/api/device/commands", headers = headers)
         return client.newCall(request).await().use {
             require(it.isSuccessful) { "Could not check paired cloud commands (HTTP ${it.code})" }
@@ -187,6 +199,7 @@ object DemosRemoteCommands {
     suspend fun reportCloudInventory(prefs: SyncPreferences) {
         val (host, headers) = credentials(prefs)
         reportExtensions(host, headers)
+        DemosCategoryControl.report(prefs)
     }
 
     private fun fingerprint(value: String): String {
@@ -215,6 +228,9 @@ object DemosRemoteCommands {
         require(command.expires > System.currentTimeMillis() / 1000) { "Command expired" }
         fun string(key: String) = requireNotNull(command.args[key]) { "Missing $key" }.jsonPrimitive.content
         fun boolean(key: String) = requireNotNull(command.args[key]) { "Missing $key" }.jsonPrimitive.boolean
+        // KMK -->
+        if (command.action == "category_changes") return DemosCategoryControl.execute(context, command)
+        // KMK <--
         when (command.action) {
             "mark_read" -> {
                 val manga = findManga(string("manga_id"))
@@ -321,3 +337,4 @@ object DemosRemoteCommands {
         }
     }
 }
+// KMK <--

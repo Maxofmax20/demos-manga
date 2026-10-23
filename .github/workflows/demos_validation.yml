@@ -15,7 +15,11 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r assistant-bridge/requirements.txt
-      - run: cd assistant-bridge && python -m unittest discover -s tests -v
+      - run: cd assistant-bridge && MANGA_DATA_DIR=$(mktemp -d) python -m unittest discover -s tests -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test assistant-cloud/tests/worker.test.mjs
   android:
     runs-on: ubuntu-24.04
     steps:

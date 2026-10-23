@@ -1,28 +1,39 @@
 ---
 name: manga-library
-description: Read and summarize your synchronized Demos Manga library and reading progress through its private cloud tools.
+description: Read your synchronized manga library and queue owner-approved Android requests through Demos Manga Cloud.
 ---
 
-Use only the connected library_stats and search_library tools for ordinary library requests. These are read-only and require no running desktop or local executor. Do not use SSH, shell commands or remote desktop as an administration fallback.
+Use only the connected cloud tools for ordinary requests. No desktop, SSH or local executor is required. Never use a terminal or remote desktop as a fallback for normal library actions.
 
-Check library_stats before claiming the library is current. If has_sync_data is false, clearly say the reader has not synced yet; an empty search is not evidence of an empty phone library. Direct the owner to the private Site https://demos-manga-cloud.adoredsmile128.chatgpt.site to opt in to SyncYomi pairing. Never ask them to paste a device key or server credential in chat. Pairing is an explicit browser action, not an MCP tool. Device keys expire after 90 days and can be revoked there.
+The nine tools are library_stats, search_library, list_paired_devices, list_manga_chapters, list_device_extensions, install_extension, uninstall_extension, request_manga_action and get_manga_action_status.
 
-search_library accepts query (up to 200 characters), unread_only (boolean), and limit (1–100; default 25). Return only permitted title metadata and chapter counts from actual results. Do not claim unmatched titles are absent when the result reached its limit.
+Check library_stats before claiming the library is current. has_sync_data=false means no reader sync has arrived; it does not prove the phone library is empty. Pairing is an explicit owner action at https://demos-manga-cloud.adoredsmile128.chatgpt.site. Never ask for a device key or backend credential in chat. Do not create or revoke pairing unless explicitly requested through the official Site.
 
-Never request chapter pages, downloads, raw backups, settings, account credentials or explicit content. Known age-restricted genre tags are excluded server-side; filtering is best effort, not comprehensive content classification. Do not copy private library metadata to unrelated services.
+Use search_library for permitted titles, counts and stable manga IDs; use list_manga_chapters for chapter IDs/read flags. Respect pagination and never claim exhaustive results when limits are reached. List paired devices and disambiguate before targeting one.
 
-If authorization or connectivity fails, explain the tool error and direct the owner to this plugin's official Connect flow. Do not invent results or claim mobile testing without an observed phone invocation.
+Before any write, require explicit user authorization for that specific action and target. Only then pass confirmed=true. install_extension/uninstall_extension require an exact non-restricted package_name returned by list_device_extensions for the selected device. Do not invent IDs, accept arbitrary APK URLs or use untrusted/restricted sources.
 
+All writes only QUEUE a request. The owner must open Demos Manga > Settings > Data & storage > Sync > ChatGPT cloud requests and approve or reject it. Android may also require a separate installer/uninstaller approval. Never approve on the owner's behalf, retry a timed-out write automatically, or claim execution from pending_confirmation. Poll get_manga_action_status with the returned command_id; only completed is a reported completion. Explain rejected, failed and expired honestly.
 
-## New commands in Site v1.1.0 (only after published)
+request_manga_action supports the server allowlist for read flags, library membership, chapter refresh/download, opening the reader or an app screen, approved settings and trusted extensions. Chapter content stays on the phone. Never request raw pages, backups, credentials or private settings, and never expose explicit content. Known adult filtering is best effort, not comprehensive classification.
 
-For writes, first identify a single paired device using list_paired_devices; obtain stable manga/chapter IDs from search_library and list_manga_chapters. Always obtain explicit user consent before request_manga_action(confirmed=true). A 202/queued result is NOT proof of execution; the user must open the Android reader cloud requests inbox and approve, then get_manga_action_status must report completed. Never automatically approve or silently modify the library. Extension installation is limited to non-restricted entries in list_device_extensions and Android OS confirmation. Do not request or return raw manga pages, backups or private settings.
-
-## Dedicated extension actions (Site v1.2.0)
-
-The Site's MCP tool registry adds `install_extension` and `uninstall_extension` alongside `list_device_extensions`. Both tools take an exact package name reported by the paired device and require explicit user authorization (`confirmed: true`). They only queue an action; the phone owner must approve in Demos Manga > Data and storage > ChatGPT cloud requests, and Android may show an independent OS installer or uninstaller prompt. Read the command state using `get_manga_action_status`. Never claim success from a queued/pending result. Exclude restricted/adult sources and untrusted package names. Keep protected backend credentials server-side. This change does not take effect in ChatGPT until the existing private Site is republished.
+On authentication or connection failure, report the tool error and use the official Connect flow. Do not invent results or claim Android verification without an observed phone invocation.
 
 
-## Opt-in unattended sync (v1.3.0)
+## Category organization milestone A — v1.4.0
 
-Use request_device_sync for explicit user-asked synchronization of library progress plus non-restricted extension inventory. It is a separate, narrowly scoped job requiring prior opt-in by the owner on the paired Android phone under Settings > Data and storage > Allow ChatGPT to trigger sync automatically. Without opt-in, the server must reject the request. Successful request_device_sync means ONLY queued; Android WorkManager polls roughly every 15 minutes and may be delayed by the OS. Use get_device_sync_status with the returned request_id: do not call it completed until device reports completed. No per-sync approval needed after one-time opt-in. This never authorizes other actions: install/uninstall and library changes still require manual phone approval. Turning off the option revokes outstanding sync requests and background checks. Never claim immediate delivery or guaranteed background execution.
+New category tools: list_categories, get_category, list_category_manga, get_manga_categories, list_library, list_uncategorized_manga, preview_category_changes, reorder_categories, apply_category_changes, set_manga_categories, bulk_set_manga_categories, get_category_change_history, undo_category_changes. request_device_sync and get_device_sync_status are now published too.
+
+Categories come from an explicitly authorized snapshot of the Android repositories, not inferred from backup category order. Every response is a snapshot with revision and timestamp, not proof the phone is online. If data is missing or a scope is disabled, explain the error. The owner must update to the category-capable Android release, enable the separate Read library/category metadata scope (and organization scope for writes), then open ChatGPT cloud requests online. Never enable scopes on their behalf.
+
+For organization, list existing categories and preserve exact Unicode/Arabic names, IDs, order and visibility. Default is id "0" with no explicit memberships. Never create progress shelves, duplicate tabs, new categories or alter reading progress to organize. Do not rename or classify categories from guesswork; ask about ambiguous meanings.
+
+Use list_library with offset/limit and follow next_offset until null. Compare revision on every page; restart if it changes. Inspect all titles and memberships before claiming full-library coverage. Restricted titles are excluded and must not be inferred absent from the phone. Use existing permitted progress tools for progress; do not invent unavailable metadata.
+
+Build a preview with explicit add/remove/replace changes, stable manga/category IDs and expected_revision. Add/remove preserve other memberships; replace may intentionally remove them. Present every affected title with original and proposed assignments, splitting the preview into readable batches when needed. Ask for approval of the exact preview. A new preview invalidates approval of an earlier plan.
+
+Only apply_category_changes (or the set_manga_categories/bulk_set_manga_categories approval aliases) queues an already reviewed preview_id with confirmed=true. Android then rechecks local permissions and current database revision inside an atomic transaction and requires foreground approval. Queued/pending is not success; never retry a timed-out write automatically. Poll get_manga_action_status, and after completed refresh/read the uploaded memberships to verify the actual database result. If a revision conflict occurs, refresh and preview again; do not silently reuse approval.
+
+reorder_categories only previews the exact non-system category ordering; Default never moves. undo_category_changes generates a new reverse-membership preview for a completed change and rejects later conflicting edits. It does not directly undo or support reorder undo. Show it and obtain fresh approval before applying. get_category_change_history distinguishes previews from actual command states.
+
+No additional category CRUD, arbitrary settings, migration, tracking, backup restore or other future capability should be claimed unless its typed tool is actually available and tested. Read and organization scopes are implemented for this milestone; later permission scopes remain disabled.

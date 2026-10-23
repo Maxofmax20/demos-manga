@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "dev-4183822d2c4481919419deea012dd465",
-  "version": "1.3.0",
-  "description": "Private library insights and owner-approved Android actions, including trusted extensions.",
+  "version": "1.4.0",
+  "description": "Private, read-only access to your synchronized Demos Manga library metadata.",
   "author": {
     "name": "App developer"
   },
@@ -15,8 +15,8 @@
         "defaultPrompt": null,
         "developerName": "App developer",
         "displayName": "Demos Manga Cloud",
-        "longDescription": "Private library insights and owner-approved Android actions, including trusted extensions.",
-        "shortDescription": "Private library insights and owner-approved Android actions, including trusted extensions.",
+        "longDescription": "Private, read-only access to your synchronized Demos Manga library metadata.",
+        "shortDescription": "Private, read-only access to your synchronized Demos Manga library metadata.",
         "websiteURL": "https://demos-manga-cloud.adoredsmile128.chatgpt.site"
       },
       "requires_local_executor": false

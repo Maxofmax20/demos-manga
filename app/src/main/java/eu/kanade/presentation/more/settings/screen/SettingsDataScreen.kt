@@ -596,6 +596,8 @@ object SettingsDataScreen : SearchableSettings {
                 (
                     if (syncServiceType == SyncManager.SyncService.SYNCYOMI) {
                         listOf(
+                            getCategoryScopePref(syncPreferences, "read_library"),
+                            getCategoryScopePref(syncPreferences, "organize_library"),
                             getRemoteCommandsPref(syncPreferences),
                             getRemoteSyncPref(syncPreferences),
                         )
@@ -638,6 +640,27 @@ object SettingsDataScreen : SearchableSettings {
     // KMK -->
     // All cloud commands require the owner to open this inbox and tap Confirm.
     // Sync/WorkManager never executes these proposals in the background.
+    @Composable
+    private fun getCategoryScopePref(syncPreferences: SyncPreferences, name: String): Preference.PreferenceItem.SwitchPreference {
+        val context = LocalContext.current
+        val isRead = name == "read_library"
+        val failureMessage = stringResource(KMR.strings.demos_scope_save_failed)
+        return Preference.PreferenceItem.SwitchPreference(
+            preference = syncPreferences.remoteScope(name),
+            title = stringResource(if (isRead) KMR.strings.demos_scope_read else KMR.strings.demos_scope_organize),
+            subtitle = stringResource(if (isRead) KMR.strings.demos_scope_read_help else KMR.strings.demos_scope_organize_help),
+            onValueChanged = { enabled ->
+                syncPreferences.remoteScope(name).set(enabled)
+                try {
+                    eu.kanade.tachiyomi.data.sync.service.DemosCategoryControl.report(syncPreferences)
+                } catch (_: Exception) {
+                    context.toast(failureMessage)
+                }
+                true
+            },
+        )
+    }
+
     @Composable
     private fun getRemoteCommandsPref(syncPreferences: SyncPreferences): Preference.PreferenceItem.TextPreference {
         val context = LocalContext.current
