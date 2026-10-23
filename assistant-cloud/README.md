@@ -8,3 +8,7 @@ Run node --test tests/*.test.mjs, bash scripts/build.sh and node scripts/validat
 ## Proposed v1.1.0 (NOT YET DEPLOYED)
 
 Adds authenticated tools for paired-device IDs, chapter IDs/read flags, available/installed extensions, owner-confirmed action proposals and status checks. Action proposals never execute on the backend; the Demos Manga Android v0.2.0 client must be installed, then the owner must approve every action in the app. Extension package changes also require Android OS confirmation. The protected Site bearer remains server-side; the current published Sites instance is still v1.0.1 until the owner-authorized Sites deployment. See assistant-bridge/REMOTE_ACTIONS_HANDOFF.md for protocol and deployment instructions.
+
+## Dedicated extension actions (Site v1.2.0)
+
+The Site's MCP tool registry adds `install_extension` and `uninstall_extension` alongside `list_device_extensions`. Both tools take an exact package name reported by the paired device and require explicit user authorization (`confirmed: true`). They only queue an action; the phone owner must approve in Demos Manga > Data and storage > ChatGPT cloud requests, and Android may show an independent OS installer or uninstaller prompt. Read the command state using `get_manga_action_status`. Never claim success from a queued/pending result. Exclude restricted/adult sources and untrusted package names. Keep protected backend credentials server-side. This change does not take effect in ChatGPT until the existing private Site is republished.
