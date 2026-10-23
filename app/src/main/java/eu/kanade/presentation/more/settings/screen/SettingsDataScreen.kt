@@ -67,6 +67,7 @@ import eu.kanade.tachiyomi.data.export.LibraryExporter
 import eu.kanade.tachiyomi.data.export.LibraryExporter.ExportOptions
 import eu.kanade.tachiyomi.data.sync.SyncDataJob
 import eu.kanade.tachiyomi.data.sync.SyncManager
+import eu.kanade.tachiyomi.data.sync.service.DemosRemoteCommands
 import eu.kanade.tachiyomi.data.sync.service.GoogleDriveService
 import eu.kanade.tachiyomi.data.sync.service.GoogleDriveSyncService
 import eu.kanade.tachiyomi.util.system.DeviceUtil
@@ -590,7 +591,8 @@ object SettingsDataScreen : SearchableSettings {
         val basePreferences = getBasePreferences(syncServiceType, syncPreferences)
 
         return if (syncServiceType != SyncManager.SyncService.NONE) {
-            basePreferences + getAdditionalPreferences(syncPreferences)
+            basePreferences + getAdditionalPreferences(syncPreferences) +
+                (if (syncServiceType == SyncManager.SyncService.SYNCYOMI) listOf(getRemoteCommandsPref(syncPreferences)) else emptyList())
         } else {
             basePreferences
         }
@@ -622,6 +624,88 @@ object SettingsDataScreen : SearchableSettings {
             preferences
         }
     }
+
+    // KMK -->
+    // All cloud commands require the owner to open this inbox and tap Confirm.
+    // Sync/WorkManager never executes these proposals in the background.
+    @Composable
+    private fun getRemoteCommandsPref(syncPreferences: SyncPreferences): Preference.PreferenceItem.TextPreference {
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        var pending by remember { mutableStateOf<DemosRemoteCommands.Command?>(null) }
+        var busy by remember { mutableStateOf(false) }
+
+        val action = pending
+        if (action != null) {
+            AlertDialog(
+                onDismissRequest = {},
+                title = { Text("ChatGPT cloud request") },
+                text = { Text(action.describe() + "\n\nApprove only if you requested this action.") },
+                confirmButton = {
+                    TextButton(
+                        enabled = !busy,
+                        onClick = {
+                            busy = true
+                            scope.launch {
+                                val success = try {
+                                    DemosRemoteCommands.execute(context, action)
+                                } catch (e: Exception) {
+                                    context.toast(e.message ?: "Cloud command failed")
+                                    false
+                                }
+                                try {
+                                    DemosRemoteCommands.report(
+                                        syncPreferences,
+                                        action.command_id,
+                                        if (success) "completed" else "failed",
+                                    )
+                                } catch (e: Exception) {
+                                    context.toast(e.message ?: "Could not acknowledge cloud command")
+                                }
+                                context.toast(if (success) "Cloud action completed" else "Cloud action could not be completed")
+                                busy = false
+                                pending = null
+                            }
+                        },
+                    ) { Text("Approve") }
+                },
+                dismissButton = {
+                    TextButton(
+                        enabled = !busy,
+                        onClick = {
+                            busy = true
+                            scope.launch {
+                                try {
+                                    DemosRemoteCommands.report(syncPreferences, action.command_id, "rejected")
+                                } catch (e: Exception) {
+                                    context.toast(e.message ?: "Could not reject cloud command")
+                                }
+                                pending = null
+                                busy = false
+                            }
+                        },
+                    ) { Text("Reject") }
+                },
+            )
+        }
+        return Preference.PreferenceItem.TextPreference(
+            title = "ChatGPT cloud requests",
+            subtitle = "Check requests from your paired ChatGPT plugin. Every action requires phone approval.",
+            onClick = {
+                if (busy) return@TextPreference
+                scope.launch {
+                    try {
+                        val commands = DemosRemoteCommands.pending(syncPreferences)
+                        pending = commands.firstOrNull()
+                        if (pending == null) context.toast("No pending ChatGPT actions")
+                    } catch (e: Exception) {
+                        context.toast(e.message ?: "Could not reach cloud commands")
+                    }
+                }
+            },
+        )
+    }
+    // KMK <--
 
     @Composable
     private fun getAdditionalPreferences(syncPreferences: SyncPreferences): List<Preference> {
