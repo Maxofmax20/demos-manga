@@ -115,6 +115,11 @@ class SyncPreferences(
     }
 
     // KMK -->
+    fun remoteScope(name: String): Preference<Boolean> {
+        require(name in eu.kanade.tachiyomi.data.sync.service.DemosCategoryControl.scopes)
+        return preferenceStore.getBoolean("demos_remote_scope_$name", false)
+    }
+
     fun showSyncingProgressBanner() = preferenceStore.getBoolean(
         Preference.appStateKey("pref_show_syncing_progress_banner_key"),
         true,

@@ -9,13 +9,17 @@ const rpc=(method,params={},identity=true)=>new Request('https://example.test/mc
 
 test('discovery exposes owner-approved extension and unattended sync tools',async()=>{
  const result=await(await worker.fetch(rpc('tools/list'),env)).json();
- assert.deepEqual(result.result.tools.map(t=>t.name),[
+ assert.deepEqual(result.result.tools.slice(0,11).map(t=>t.name),[
   'library_stats','search_library','list_paired_devices','list_manga_chapters',
   'list_device_extensions','install_extension','uninstall_extension','request_manga_action','get_manga_action_status','request_device_sync','get_device_sync_status'
  ]);
  const writes=result.result.tools.filter(t=>!t.annotations.readOnlyHint);
- assert.deepEqual(writes.map(t=>t.name),['install_extension','uninstall_extension','request_manga_action','request_device_sync']);
- assert(writes.every(t=>t.annotations.destructiveHint));
+ assert.deepEqual(writes.slice(0,4).map(t=>t.name),['install_extension','uninstall_extension','request_manga_action','request_device_sync']);
+ assert.equal(result.result.tools.length,24);
+ assert(result.result.tools.some(t=>t.name==='apply_category_changes'));
+ assert(writes.slice(0,4).every(t=>t.annotations.destructiveHint));
+ assert.equal(result.result.tools.find(t=>t.name==='preview_category_changes').annotations.destructiveHint,false);
+ assert.equal(result.result.tools.find(t=>t.name==='apply_category_changes').annotations.destructiveHint,true);
 });
 
 test('anonymous MCP and cross-origin pairing denied',async()=>{
@@ -184,4 +188,24 @@ test('remote sync tools reject invented device identifiers and unsupported field
  assert.throws(()=>argumentsFor('request_device_sync',{device_id,action:'uninstall_extension'}));
  assert.throws(()=>argumentsFor('get_device_sync_status',{request_id:'bad'}));
  assert.throws(()=>metadata('request_device_sync',{request_id:command_id,device_id,state:'success',updated:1,expires:2}));
+});
+
+
+test('category pagination preserves IDs and does not fetch raw backups',async()=>{
+ const r=await execute('list_library',{device_id,offset:200,limit:100},env,async(url)=>{
+  assert.equal(new URL(url).pathname,'/api/assistant/category-library');
+  assert.equal(new URL(url).searchParams.get('offset'),'200');
+  return Response.json({device_id,revision:'a'.repeat(64),items:[{id:manga_id,title:'قيد القراءة',category_ids:['7','9']}],total:219,offset:200,limit:100,next_offset:null});
+ });assert.equal(r.isError,false);assert.equal(r.structuredContent.result.total,219);
+});
+test('category apply requires exact approval and routes only to the queue',async()=>{
+ assert.throws(()=>argumentsFor('apply_category_changes',{device_id,preview_id:command_id,confirmed:false}));
+ let calls=0;
+ const r=await execute('apply_category_changes',{device_id,preview_id:command_id,confirmed:true},env,async(url,o)=>{
+  calls++;assert.equal(new URL(url).pathname,'/api/assistant/category-apply');assert.equal(o.method,'POST');
+  return Response.json({device_id,command_id,action:'category_changes',state:'pending_confirmation',expires:100});
+ });assert.equal(calls,1);assert.equal(r.structuredContent.result.state,'pending_confirmation');
+});
+test('generic action cannot bypass category preview',()=>{
+ assert.throws(()=>argumentsFor('request_manga_action',{device_id,action:'category_changes',args:{},confirmed:true}));
 });

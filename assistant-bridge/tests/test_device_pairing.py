@@ -7,7 +7,7 @@ import server
 class DevicePairingTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup)
-        for field,value in [('DATA_DIR',Path(self.temp.name)),('DEVICE_KEYS_PATH',Path(self.temp.name)/'keys.json'),('BACKUP_PATH',Path(self.temp.name)/'sync.protobuf'),('MCP_TOKEN','m'*40),('SYNC_TOKEN','s'*40)]:
+        for field,value in [('DATA_DIR',Path(self.temp.name)),('COMMAND_DB',Path(self.temp.name)/'commands.sqlite3'),('DEVICE_KEYS_PATH',Path(self.temp.name)/'keys.json'),('BACKUP_PATH',Path(self.temp.name)/'sync.protobuf'),('MCP_TOKEN','m'*40),('SYNC_TOKEN','s'*40)]:
             p=patch.object(server,field,value);p.start();self.addCleanup(p.stop)
         self.c=TestClient(server.app);self.h={'Authorization':'Bearer '+'m'*40}
     def test_pair_opt_in_hash_scope_revoke(self):

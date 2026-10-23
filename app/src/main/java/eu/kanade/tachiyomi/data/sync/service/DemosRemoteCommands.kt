@@ -60,6 +60,7 @@ object DemosRemoteCommands {
         fun describe(): String {
             val name = args["package_name"]?.jsonPrimitive?.content ?: ""
             return when (action) {
+                "category_changes" -> "Apply the category organization preview you approved in ChatGPT? Other categories and reading progress will be preserved."
                 "mark_read" -> "Mark selected chapters as ${if (args["read"]?.jsonPrimitive?.boolean == true) "read" else "unread"}?"
                 "library_set" -> "${if (args["favorite"]?.jsonPrimitive?.boolean == true) "Add this manga to" else "Remove this manga from"} your library?"
                 "refresh_chapters" -> "Refresh chapter updates for the selected manga?"
@@ -125,6 +126,7 @@ object DemosRemoteCommands {
     suspend fun pending(prefs: SyncPreferences): List<Command> {
         val (host, headers) = credentials(prefs)
         runCatching { reportExtensions(host, headers) }
+        DemosCategoryControl.report(prefs)
         val request = GET(url = "$host/api/device/commands", headers = headers)
         return client.newCall(request).await().use {
             require(it.isSuccessful) { "Could not check paired cloud commands (HTTP ${it.code})" }
@@ -187,6 +189,7 @@ object DemosRemoteCommands {
     suspend fun reportCloudInventory(prefs: SyncPreferences) {
         val (host, headers) = credentials(prefs)
         reportExtensions(host, headers)
+        DemosCategoryControl.report(prefs)
     }
 
     private fun fingerprint(value: String): String {
@@ -215,6 +218,9 @@ object DemosRemoteCommands {
         require(command.expires > System.currentTimeMillis() / 1000) { "Command expired" }
         fun string(key: String) = requireNotNull(command.args[key]) { "Missing $key" }.jsonPrimitive.content
         fun boolean(key: String) = requireNotNull(command.args[key]) { "Missing $key" }.jsonPrimitive.boolean
+        // KMK -->
+        if (command.action == "category_changes") return DemosCategoryControl.execute(context, command)
+        // KMK <--
         when (command.action) {
             "mark_read" -> {
                 val manga = findManga(string("manga_id"))

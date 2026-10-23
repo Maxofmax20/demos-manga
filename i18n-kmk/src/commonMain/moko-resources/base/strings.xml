@@ -238,4 +238,9 @@
     <string name="pref_discord_show_download_button_summary">Displays a button to download the app</string>
     <string name="pref_discord_show_discord_button">Show Discord Button</string>
     <string name="pref_discord_show_discord_button_summary">Displays a button to join the Discord server</string>
+    <string name="demos_scope_read">Allow cloud library and category metadata</string>
+    <string name="demos_scope_organize">Allow approved category organization</string>
+    <string name="demos_scope_read_help">Uploads permitted titles and exact category memberships from this phone. Default off.</string>
+    <string name="demos_scope_organize_help">Requires a reviewed preview and phone approval. Revocable at any time.</string>
+    <string name="demos_scope_save_failed">Saved on phone. Open cloud requests online to refresh server permissions.</string>
 </resources>
