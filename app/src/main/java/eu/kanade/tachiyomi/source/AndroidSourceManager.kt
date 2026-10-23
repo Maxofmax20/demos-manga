@@ -75,7 +75,7 @@ class AndroidSourceManager(
             extensionManager.installedExtensionsFlow
                 // KMK -->
                 .collectLatest { extensions ->
-                // KMK <--
+                    // KMK <--
                     val mutableMap = ConcurrentHashMap<Long, Source>(
                         mapOf(
                             LocalSource.ID to LocalSource(
