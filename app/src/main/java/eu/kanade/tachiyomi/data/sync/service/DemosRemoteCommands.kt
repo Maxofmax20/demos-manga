@@ -219,6 +219,7 @@ object DemosRemoteCommands {
                 val target = when (string("screen")) {
                     "browse" -> Constants.SHORTCUT_SOURCES
                     "extensions" -> Constants.SHORTCUT_EXTENSIONS
+                    "settings" -> "me.demos25.manga.OPEN_SETTINGS"
                     else -> Constants.SHORTCUT_LIBRARY
                 }
                 context.startActivity(Intent(context, MainActivity::class.java).setAction(target).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

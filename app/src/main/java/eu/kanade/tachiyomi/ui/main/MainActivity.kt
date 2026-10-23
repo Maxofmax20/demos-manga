@@ -656,6 +656,13 @@ class MainActivity : BaseActivity() {
             Constants.SHORTCUT_HISTORY -> HomeScreen.Tab.History
             Constants.SHORTCUT_SOURCES -> HomeScreen.Tab.Browse(false)
             Constants.SHORTCUT_EXTENSIONS -> HomeScreen.Tab.Browse(true)
+            // KMK -->
+            "me.demos25.manga.OPEN_SETTINGS" -> {
+                navigator.popUntilRoot()
+                navigator.push(eu.kanade.presentation.more.settings.screen.SettingsMainScreen)
+                null
+            }
+            // KMK <--
             Constants.SHORTCUT_DOWNLOADS -> {
                 navigator.popUntilRoot()
                 HomeScreen.Tab.More(toDownloads = true)
