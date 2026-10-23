@@ -17,11 +17,8 @@ import eu.kanade.tachiyomi.source.online.english.EightMuses
 import exh.log.xLogD
 import exh.source.BlacklistedSources
 import exh.source.DelegatedHttpSource
-import exh.source.EHENTAI_EXT_SOURCES
 import exh.source.EIGHTMUSES_SOURCE_ID
-import exh.source.EXHENTAI_EXT_SOURCES
 import exh.source.EnhancedHttpSource
-import exh.source.ExhPreferences
 import exh.source.MERGED_SOURCE_ID
 import exh.source.handleSourceLibrary
 import kotlinx.coroutines.CoroutineScope
@@ -67,7 +64,6 @@ class AndroidSourceManager(
     override val sources: Flow<List<Source>> = sourcesMapFlow.map { it.values.toList() }
 
     // SY -->
-    private val exhPreferences: ExhPreferences by injectLazy()
     private val sourcePreferences: SourcePreferences by injectLazy()
     // SY <--
     // KMK -->
@@ -77,17 +73,9 @@ class AndroidSourceManager(
     init {
         scope.launch {
             extensionManager.installedExtensionsFlow
-                // SY -->
-                .combine(exhPreferences.enableExhentai().changes()) { extensions, enableExhentai ->
-                    extensions to enableExhentai
-                }
                 // KMK -->
-                .combine(
-                    exhPreferences.isHentaiEnabled().changes(),
-                ) { (a, b), c -> Triple(a, b, c) }
-                // KMK <--
-                // SY <--
-                .collectLatest { (extensions, enableExhentai/* KMK --> */, isHentaiEnabled/* KMK <-- */) ->
+                .collectLatest { extensions ->
+                    // KMK <--
                     val mutableMap = ConcurrentHashMap<Long, Source>(
                         mapOf(
                             LocalSource.ID to LocalSource(
@@ -101,23 +89,14 @@ class AndroidSourceManager(
                         ),
                     ).apply {
                         // KMK -->
-                        if (isHentaiEnabled) {
-                            EHENTAI_EXT_SOURCES.forEach { (id, lang) ->
-                                put(id, EHentai(id, false, context, lang))
-                            }
-                            if (enableExhentai) {
-                                EXHENTAI_EXT_SOURCES.forEach { (id, lang) ->
-                                    put(id, EHentai(id, true, context, lang))
-                                }
-                            }
-                        }
+                        // Bundled adult-content sources are not registered.
                         // KMK <--
                         // SY -->
                         put(MERGED_SOURCE_ID, MergedSource())
                         // SY <--
                     }
                     extensions.forEach { extension ->
-                        extension.sources.mapNotNull { it.toInternalSource(/* KMK --> */isHentaiEnabled/* KMK <-- */) }.forEach {
+                        extension.sources.mapNotNull { it.toInternalSource(/* KMK --> */false/* KMK <-- */) }.forEach {
                             mutableMap[it.id] = it
                             registerStubSource(StubSource.from(it))
                         }
@@ -272,28 +251,10 @@ class AndroidSourceManager(
          */
         val DELEGATED_SOURCES = listOf(
             DelegatedSource(
-                "Pururin",
-                fillInSourceId,
-                "eu.kanade.tachiyomi.extension.all.pururin.Pururin",
-                Pururin::class,
-            ),
-            DelegatedSource(
                 "MangaDex",
                 fillInSourceId,
                 "eu.kanade.tachiyomi.extension.all.mangadex.MangaDex",
                 MangaDex::class,
-            ),
-            DelegatedSource(
-                "8Muses",
-                EIGHTMUSES_SOURCE_ID,
-                "eu.kanade.tachiyomi.extension.en.eightmuses.EightMuses",
-                EightMuses::class,
-            ),
-            DelegatedSource(
-                "NHentai",
-                fillInSourceId,
-                "eu.kanade.tachiyomi.extension.all.nhentai.NHentai",
-                NHentai::class,
             ),
             DelegatedSource(
                 "LANraragi",

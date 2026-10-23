@@ -39,7 +39,9 @@ class SourcePreferences(
         -1,
     )
 
-    fun showNsfwSource() = preferenceStore.getBoolean("show_nsfw_source", true)
+    // KMK -->
+    fun showNsfwSource() = preferenceStore.getBoolean("show_nsfw_source", false)
+    // KMK <--
 
     fun migrationSortingMode() = preferenceStore.getEnum("pref_migration_sorting", SetMigrateSorting.Mode.ALPHABETICAL)
 

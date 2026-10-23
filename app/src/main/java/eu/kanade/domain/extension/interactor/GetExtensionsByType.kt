@@ -13,7 +13,9 @@ class GetExtensionsByType(
 ) {
 
     fun subscribe(): Flow<Extensions> {
-        val showNsfwSources = preferences.showNsfwSource().get()
+        // KMK -->
+        val showNsfwSources = false
+        // KMK <--
 
         return combine(
             preferences.enabledLanguages().changes(),
