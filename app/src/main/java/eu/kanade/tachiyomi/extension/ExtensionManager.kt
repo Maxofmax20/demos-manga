@@ -77,7 +77,7 @@ class ExtensionManager(
 
     // SY -->
     val availableExtensionsFlow = availableExtensionMapFlow.map { it.filterNotBlacklisted().values.toList() }
-        .stateIn(scope, SharingStarted.Lazily, availableExtensionMapFlow.value.values.toList())
+        .stateIn(scope, SharingStarted.Eagerly, availableExtensionMapFlow.value.values.toList())
     // SY <--
 
     private val untrustedExtensionMapFlow = MutableStateFlow(emptyMap<String, Extension.Untrusted>())

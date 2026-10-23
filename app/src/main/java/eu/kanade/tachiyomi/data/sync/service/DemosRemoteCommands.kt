@@ -85,6 +85,11 @@ object DemosRemoteCommands {
     private suspend fun reportExtensions(host: String, headers: Headers) {
         // A best-effort snapshot obtained only when the owner opens the inbox.
         val manager = Injekt.get<ExtensionManager>()
+        // Refresh the trusted repository catalog when cold-started. The
+        // previous lazy flow returned zero available extensions from the inbox.
+        if (manager.availableExtensionsFlow.value.isEmpty()) {
+            runCatching { manager.findAvailableExtensions() }
+        }
         val restricted = listOf("nsfw", "adult", "hentai", "erotic", "smut", "porn")
         fun permitted(name: String, pkg: String, isNsfw: Boolean): Boolean {
             return !isNsfw && restricted.none {
@@ -111,6 +116,10 @@ object DemosRemoteCommands {
         val key = prefs.clientAPIKey().get()
         require(key.length >= 32) { "Pair your Demos Manga device first" }
         return TRUSTED_HOST to Headers.Builder().add("X-API-Token", key).build()
+    }
+
+    fun validatePairing(prefs: SyncPreferences) {
+        credentials(prefs)
     }
 
     suspend fun pending(prefs: SyncPreferences): List<Command> {
