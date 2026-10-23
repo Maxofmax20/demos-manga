@@ -1,5 +1,5 @@
 const BASE='https://manga.demos25.me';
-const VERSION='1.1.0';
+const VERSION='1.2.0';
 const TOOLS=[{name:'library_stats',description:'Read aggregate progress and sync status from your own synchronized manga library.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}},{name:'search_library',description:'Search your own permitted library metadata; no chapters, images, settings or raw backups.',inputSchema:{type:'object',properties:{query:{type:'string',maxLength:200,default:''},unread_only:{type:'boolean',default:false},limit:{type:'integer',minimum:1,maximum:100,default:25}},additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}}];
 const safeTool=(name,description,properties,required=[],readOnly=true)=>({name,description,inputSchema:{type:'object',properties,required,additionalProperties:false},annotations:{readOnlyHint:readOnly,destructiveHint:!readOnly,openWorldHint:false}});
 const HEX24=/^[0-9a-f]{24}$/;const HEX32=/^[0-9a-f]{32}$/;const DEVICE=/^[0-9a-f]{16}$/;
@@ -8,6 +8,8 @@ TOOLS.push(
  safeTool('list_paired_devices','List your own paired phone IDs; credentials are never exposed.',{}),
  safeTool('list_manga_chapters','Get chapter IDs and read flags for a library title.',{manga_id:{type:'string',pattern:'^[0-9a-f]{24}$'},offset:{type:'integer',minimum:0,maximum:100000,default:0},limit:{type:'integer',minimum:1,maximum:100,default:100}},['manga_id']),
  safeTool('list_device_extensions','List non-restricted installed and available Android extensions from the most recent device report.',{device_id:{type:'string',pattern:'^[0-9a-f]{16}$'}},['device_id']),
+ safeTool('install_extension','Request installation of a known, non-restricted manga extension on your paired phone. The phone owner must approve this request and Android must approve the installation.',{device_id:{type:'string',pattern:'^[0-9a-f]{16}$'},package_name:{type:'string',maxLength:180},confirmed:{type:'boolean',description:'True only after user explicitly requested installation of this exact extension.'}},['device_id','package_name','confirmed'],false),
+ safeTool('uninstall_extension','Request uninstallation of a known, non-restricted manga extension. Phone and Android system approval are required.',{device_id:{type:'string',pattern:'^[0-9a-f]{16}$'},package_name:{type:'string',maxLength:180},confirmed:{type:'boolean',description:'True only after user explicitly requested removal of this exact extension.'}},['device_id','package_name','confirmed'],false),
  safeTool('request_manga_action','Queue one explicitly user-confirmed action for Android phone approval. Returns pending status, never execution success.',{device_id:{type:'string',pattern:'^[0-9a-f]{16}$'},action:{type:'string',enum:Array.from(ACTIONS)},args:{type:'object'},confirmed:{type:'boolean',description:'Must be true only after the owner explicitly authorizes this specific action.'}},['device_id','action','args','confirmed'],false),
  safeTool('get_manga_action_status','Read a requested action status (pending, rejected, failed, completed or expired).',{command_id:{type:'string',pattern:'^[0-9a-f]{32}$'}},['command_id'])
 );
@@ -25,6 +27,14 @@ export function argumentsFor(name,args){
  }
  if(name==='list_device_extensions'){
   if(!DEVICE.test(args.device_id))throw Error('Invalid paired device ID');return {device_id:args.device_id};
+ }
+ if(name==='install_extension'||name==='uninstall_extension'){
+  const package_name=args.package_name;
+  if(!DEVICE.test(args.device_id)||args.confirmed!==true||typeof package_name!=='string'||package_name.length>180
+    ||!/^eu[.]kanade[.]tachiyomi[.]extension(?:[.][A-Za-z][A-Za-z0-9_]*){2,}$/.test(package_name)
+    ||['nsfw','adult','hentai','porn','erotic','18plus','18+','smut'].some(flag=>package_name.toLowerCase().includes(flag)))
+    throw Error('A valid non-restricted extension and explicit user approval are required');
+  return {device_id:args.device_id,action:name,args:{package_name}};
  }
  if(name==='request_manga_action'){
   if(!DEVICE.test(args.device_id)||!ACTIONS.has(args.action)||args.confirmed!==true||!args.args||typeof args.args!=='object'||Array.isArray(args.args)||JSON.stringify(args.args).length>1000)throw Error('Explicit authorization and valid action parameters required');
@@ -54,7 +64,7 @@ export function metadata(name,data){
   const extensions=data.extensions.map(e=>{if(typeof e.name!=='string'||e.name.length>120||typeof e.installed!=='boolean'||typeof e.package_name!=='string'||!/^eu[.]kanade[.]tachiyomi[.]extension[.][a-zA-Z0-9_.]+$/.test(e.package_name))throw Error('Invalid extension');return {package_name:e.package_name,name:e.name,installed:e.installed};});
   return {device_id:data.device_id,updated:data.updated,extensions};
  }
- if(name==='request_manga_action'||name==='get_manga_action_status'){
+ if(['request_manga_action','get_manga_action_status','install_extension','uninstall_extension'].includes(name)){
   const states=['pending_confirmation','completed','rejected','failed','expired'];
   if(!HEX32.test(data?.command_id)||!DEVICE.test(data.device_id)||!ACTIONS.has(data.action)||!states.includes(data.state)||!integer(data.expires))throw Error('Invalid command status');
   return {command_id:data.command_id,device_id:data.device_id,action:data.action,state:data.state,expires:data.expires};
@@ -93,7 +103,7 @@ export async function execute(name,args,env,fetcher){
   else if(name==='list_manga_chapters')path='/api/assistant/chapters?'+new URLSearchParams({manga_id:args.manga_id,offset:String(args.offset),limit:String(args.limit)});
   else if(name==='list_device_extensions')path='/api/assistant/extensions?'+new URLSearchParams({device_id:args.device_id});
   else if(name==='get_manga_action_status')path='/api/assistant/commands/'+args.command_id;
-  else if(name==='request_manga_action'){path='/api/assistant/commands';method='POST';payload=args;}
+  else if(['request_manga_action','install_extension','uninstall_extension'].includes(name)){path='/api/assistant/commands';method='POST';payload=args;}
   else throw Error('Unknown action.');
   const result=metadata(name,await backend(path,env,{method,payload,fetcher}));
   return {content:[{type:'text',text:JSON.stringify(result)}],structuredContent:{result},isError:false};

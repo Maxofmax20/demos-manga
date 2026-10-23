@@ -7,14 +7,14 @@ const stats={titles:0,total_chapters:0,read_chapters:0,unread_chapters:0,has_syn
 const device_id='a'.repeat(16),manga_id='b'.repeat(24),command_id='c'.repeat(32);
 const rpc=(method,params={},identity=true)=>new Request('https://example.test/mcp',{method:'POST',headers:{'Content-Type':'application/json',...(identity?{'oai-authenticated-user-id':'owner'}:{})},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});
 
-test('discovery exposes seven tools with write tool clearly marked',async()=>{
+test('discovery exposes extension-specific write tools with approval requirements',async()=>{
  const result=await(await worker.fetch(rpc('tools/list'),env)).json();
  assert.deepEqual(result.result.tools.map(t=>t.name),[
   'library_stats','search_library','list_paired_devices','list_manga_chapters',
-  'list_device_extensions','request_manga_action','get_manga_action_status'
+  'list_device_extensions','install_extension','uninstall_extension','request_manga_action','get_manga_action_status'
  ]);
  const writes=result.result.tools.filter(t=>!t.annotations.readOnlyHint);
- assert.deepEqual(writes.map(t=>t.name),['request_manga_action']);
+ assert.deepEqual(writes.map(t=>t.name),['install_extension','uninstall_extension','request_manga_action']);
  assert(writes.every(t=>t.annotations.destructiveHint));
 });
 
@@ -116,4 +116,40 @@ test('malformed or oversized metadata rejected',()=>{
  assert.throws(()=>metadata('library_stats',{}));
  assert.throws(()=>metadata('search_library',[{title:'x',chapters:-1,read:0,unread:0}]));
  assert.throws(()=>metadata('list_device_extensions',{device_id,updated:null,extensions:[{package_name:'random',name:'bad',installed:true}]}));
+});
+
+
+test('extension install and uninstall enqueue pending actions without executing anything', async()=>{
+ const package_name='eu.kanade.tachiyomi.extension.en.sample';
+ for(const action of ['install_extension','uninstall_extension']){
+  let calls=0;
+  const result=await execute(action,{device_id,package_name,confirmed:true},env,async(url,options)=>{
+   calls++;assert(url.endsWith('/api/assistant/commands'));
+   assert.equal(options.method,'POST');
+   assert.deepEqual(JSON.parse(options.body),{device_id,action,args:{package_name}});
+   return Response.json({device_id,command_id,action,state:'pending_confirmation',expires:1234567890});
+  });
+  assert.equal(calls,1);
+  assert.equal(result.isError,false);
+  assert.equal(result.structuredContent.result.state,'pending_confirmation');
+ }
+});
+
+test('extension actions reject unsafe package names and missing approval before network requests', async()=>{
+ const inputs=[
+  {device_id,package_name:'eu.kanade.tachiyomi.extension.en.sample',confirmed:false},
+  {device_id,package_name:'eu.kanade.tachiyomi.extension.en.sample'},
+  {device_id,package_name:'com.example.malware',confirmed:true},
+  {device_id,package_name:'eu.kanade.tachiyomi.extension.en.adult',confirmed:true},
+  {device_id,package_name:'eu.kanade.tachiyomi.extension.en.hentai',confirmed:true},
+  {device_id,package_name:'eu.kanade.tachiyomi.extension.en.sample',confirmed:true,raw_url:'https://example.invalid/a.apk'},
+ ];
+ let count=0;
+ for(const name of ['install_extension','uninstall_extension']){
+  for(const item of inputs){
+   const result=await execute(name,item,env,async()=>{count++;return Response.json({});});
+   assert(result.isError,JSON.stringify({name,item}));
+  }
+ }
+ assert.equal(count,0);
 });
