@@ -160,6 +160,10 @@ export async function backend(path,env,{method='GET',payload,fetcher=(...args)=>
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
  try{
   const response=await fetcher(BASE+path,{method,redirect:'manual',headers:{Authorization:'Bearer '+env.MANGA_MCP_TOKEN,Accept:'application/json','User-Agent':'Demos-Manga-Cloud/1.3',...(payload!==undefined?{'Content-Type':'application/json'}:{})},...(payload!==undefined?{body:JSON.stringify(payload)}:{}),signal:controller.signal});
+  if(response.status===403){
+   let detail;try{detail=(await response.clone().json()).detail;}catch{}
+   if(detail==='Required phone scope is disabled or revoked')throw Error('Required phone scope is disabled or revoked. Enable the relevant permission on Android and refresh the category snapshot.');
+  }
   if(response.status===401||response.status===403)throw Error('Backend authorization rejected. The owner must check the protected connection and edge policy.');
   if(response.status>=300&&response.status<400)throw Error('Backend redirected the request; credentials were not forwarded.');
   if(!response.ok){

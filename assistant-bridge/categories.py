@@ -41,6 +41,8 @@ def store(path,device,s):
   db.execute('INSERT OR REPLACE INTO category_snapshots VALUES(?,?,?,?,?)',(device,s['revision'],int(time.time()),json.dumps(s['scopes']),json.dumps({'categories':s['categories']},ensure_ascii=False)))
   db.execute('DELETE FROM category_titles WHERE device=?',(device,))
   db.executemany('INSERT INTO category_titles VALUES(?,?,?,?)',[(device,m['id'],m['title'],json.dumps(m,ensure_ascii=False)) for m in s['manga']])
+  if (not s['scopes']['read_library'] or not s['scopes']['organize_library']) and db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='commands'").fetchone():
+   db.execute("UPDATE commands SET state='rejected',result_json=? WHERE device_id=? AND action='category_changes' AND state='pending_confirmation'",(json.dumps({'reason':'scope_revoked','reported_at':int(time.time())}),device))
  return {'revision':s['revision'],'titles':len(s['manga'])}
 def snapshot(path,device,write=False):
  initialize(path)

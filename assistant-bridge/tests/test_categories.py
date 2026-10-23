@@ -32,6 +32,13 @@ class CategoryTests(unittest.TestCase):
  def test_scope_revocation(self):
   p=self.preview();self.snapshot['scopes']['organize_library']=False;categories.store(self.db,'phone',self.snapshot)
   with self.assertRaises(PermissionError):categories.apply(self.db,'phone',p['preview_id'],True,command_queue)
+ def test_revocation_cancels_and_cannot_revive_an_old_queue(self):
+  p=self.preview();queued=categories.apply(self.db,'phone',p['preview_id'],True,command_queue)
+  self.snapshot['scopes']['organize_library']=False;categories.store(self.db,'phone',self.snapshot)
+  self.assertEqual(command_queue.lookup(self.db,queued['command_id'])['state'],'rejected')
+  self.snapshot['scopes']['organize_library']=True;categories.store(self.db,'phone',self.snapshot)
+  self.assertEqual(categories.apply(self.db,'phone',p['preview_id'],True,command_queue)['state'],'rejected')
+  self.assertEqual(command_queue.pending(self.db,'phone'),[])
  def test_invalid_duplicate_default_ids(self):
   for ids in [['9','9'],['0'],['123'],[9]]:
    with self.subTest(ids=ids),self.assertRaises(ValueError):self.preview(ids=ids)

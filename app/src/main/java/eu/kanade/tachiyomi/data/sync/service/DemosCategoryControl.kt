@@ -108,6 +108,19 @@ object DemosCategoryControl {
         val proposal = json.decodeFromString<Proposal>(JsonObject(command.args).toString())
         require(proposal.changes.size <= 500)
         val handler = Injekt.get<DatabaseHandler>()
+        val committed = handler.await {
+            remote_category_commitsQueries.findCommit(command.command_id).executeAsOneOrNull() != null
+        }
+        if (committed) {
+            runCatching { report(prefs) }
+            return true
+        }
+        // Re-fetch the exact pending command before execution. Scope revocation cancels
+        // old proposals on the server, so enabling the scope again cannot revive them.
+        val current = DemosRemoteCommands.pending(prefs).singleOrNull { it.command_id == command.command_id }
+        require(current != null && current.action == command.action && current.args == command.args) {
+            "This category request was revoked, expired or already resolved"
+        }
         // Reads, conflict detection, all membership writes and the durable replay journal
         // share a single SQLDelight transaction. An exception rolls everything back.
         handler.await(inTransaction = true) {

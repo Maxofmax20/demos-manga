@@ -209,3 +209,8 @@ test('category apply requires exact approval and routes only to the queue',async
 test('generic action cannot bypass category preview',()=>{
  assert.throws(()=>argumentsFor('request_manga_action',{device_id,action:'category_changes',args:{},confirmed:true}));
 });
+
+test('revoked phone scope does not masquerade as broken server credentials',async()=>{
+ const r=await execute('list_categories',{device_id},env,async()=>Response.json({detail:'Required phone scope is disabled or revoked'},{status:403}));
+ assert(r.isError);assert.match(r.content[0].text,/permission on Android/);assert(!r.content[0].text.includes(token));
+});
