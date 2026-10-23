@@ -4,6 +4,9 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import json
+import secrets
+import time
 import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -102,6 +105,40 @@ def get_library() -> list[dict]:
         return []
 
 
+# KMK -->
+DEVICE_KEYS_PATH = DATA_DIR / "device-keys.json"
+
+
+def _device_keys() -> list[dict]:
+    try:
+        return json.loads(DEVICE_KEYS_PATH.read_text())
+    except FileNotFoundError:
+        return []
+
+
+def _save_device_keys(keys: list[dict]):
+    DATA_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+    fd, name = tempfile.mkstemp(dir=DATA_DIR, prefix=".devices-")
+    try:
+        with os.fdopen(fd, "w") as output:
+            json.dump(keys, output)
+            output.flush()
+            os.fsync(output.fileno())
+        os.chmod(name, 0o600)
+        os.replace(name, DEVICE_KEYS_PATH)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
+
+
+def _device_token_matches(token: str) -> bool:
+    if len(token) < 32 or len(token) > 256:
+        return False
+    digest = hashlib.sha256(token.encode()).hexdigest()
+    return any(k["expires"] > time.time() and hmac.compare_digest(k["hash"], digest) for k in _device_keys())
+# KMK <--
+
+
 def _token_matches(given: str, secret: str) -> bool:
     return len(secret) >= 32 and hmac.compare_digest(given, secret)
 
@@ -151,7 +188,7 @@ async def require_auth(request: Request, call_next):
     if path == "/health":
         return await call_next(request)
     if path.startswith("/api/sync/"):
-        if not _token_matches(request.headers.get("X-API-Token", ""), SYNC_TOKEN):
+        if not (_token_matches(request.headers.get("X-API-Token", ""), SYNC_TOKEN) or _device_token_matches(request.headers.get("X-API-Token", ""))):
             return JSONResponse({"detail": "Unauthorized"}, status_code=401)
     elif path.startswith("/mcp") or path.startswith("/api/assistant/"):
         auth = request.headers.get("authorization", "")
@@ -171,6 +208,28 @@ def health():
 # Cloud-hosted ChatGPT Sites can call these metadata-only endpoints using a
 # bearer credential stored in Sites protected configuration. Never expose
 # raw backup bytes, credentials or chapter pages through this API.
+@app.post("/api/assistant/pair")
+def pair_device(response: Response):
+    # Explicit owner action only; this endpoint is not an MCP tool.
+    keys = [k for k in _device_keys() if k["expires"] > time.time()]
+    if len(keys) >= 3:
+        raise HTTPException(409, "Three devices already paired. Revoke an old device first.")
+    token = secrets.token_urlsafe(48)
+    device_id = secrets.token_hex(8)
+    expires = int(time.time()) + 90 * 86400
+    keys.append({"id": device_id, "hash": hashlib.sha256(token.encode()).hexdigest(), "expires": expires})
+    _save_device_keys(keys)
+    response.headers["Cache-Control"] = "no-store"
+    return {"device_id": device_id, "token": token, "expires": expires, "server_url": "https://manga.demos25.me"}
+
+
+@app.post("/api/assistant/unpair")
+async def unpair_devices(response: Response):
+    _save_device_keys([])
+    response.headers["Cache-Control"] = "no-store"
+    return {"revoked": True}
+
+
 @app.get("/api/assistant/stats")
 def assistant_stats(response: Response):
     response.headers["Cache-Control"] = "no-store"
