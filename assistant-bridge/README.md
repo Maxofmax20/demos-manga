@@ -22,3 +22,12 @@ MCP tools are `library_stats` and `search_library`. Titles tagged with explicitl
 The server intentionally skips fields that may contain credentials. However, the backing binary SyncYomi backup still can contain sensitive settings; configure the app sync options to exclude app/source/private settings. Restrict server access and back up the raw file securely.
 
 The fork retains copyright notices and upstream Apache-2.0 license. No chapter content or content-provider assets are redistributed in this bridge.
+
+## Mobile ChatGPT via Sites
+
+For Android ChatGPT, build a **cloud-backed ChatGPT Site** that calls the read-only JSON companion endpoints on the server side. Both require `Authorization: Bearer <MANGA_MCP_TOKEN>` supplied through protected Site configuration (never in its client UI or a plugin ZIP):
+
+- `GET /api/assistant/stats`: counts, unread chapters and sync status.
+- `GET /api/assistant/search?query=...&unread_only=false&limit=25`: filtered library title metadata, maximum 100 entries.
+
+These endpoints use the existing MCP credential and never return chapter files or raw backups. Both deny unauthenticated requests and responses are non-cacheable. They remain empty until the phone explicitly syncs. See [MOBILE_PLUGIN_HANDOFF.md](MOBILE_PLUGIN_HANDOFF.md) for the Site plugin implementation and security checklist.
