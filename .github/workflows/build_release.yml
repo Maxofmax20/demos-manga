@@ -1,13 +1,15 @@
-name: Demos Manga signed release
+name: Demos Manga release build
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  android-release:
+  build-unsigned:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -20,34 +22,14 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Check formatting
         run: ./gradlew spotlessCheck
-      - name: Build unsigned APK
+      - name: Build release APKs
         run: ./gradlew assembleRelease -Penable-updater
       - name: Run unit tests
         run: ./gradlew testReleaseUnitTest
-      - name: Sign release APKs
-        uses: r0adkll/sign-android-release@f30bdd30588842ac76044ecdbd4b6d0e3e813478
+      - name: Store unsigned release APKs for trusted VPS signing
+        uses: actions/upload-artifact@v4
         with:
-          releaseDirectory: app/build/outputs/apk/release
-          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
-          alias: ${{ secrets.ALIAS }}
-          keyStorePassword: ${{ secrets.KEY_STORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
-        env:
-          BUILD_TOOLS_VERSION: '35.0.1'
-      - name: Prepare downloads
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p dist
-          find app/build/outputs/apk/release -name '*signed.apk' -type f -print0 | while IFS= read -r -d '' apk; do
-            name="$(basename "$apk" | sed 's/^app-/DemosManga-/' | sed 's/-release-unsigned-signed//')"
-            cp "$apk" "dist/$name"
-          done
-          test -n "$(find dist -name '*.apk' -print -quit)"
-          sha256sum dist/*.apk > dist/SHA256SUMS.txt
-      - name: Publish signed APKs
-        uses: softprops/action-gh-release@v2
-        with:
-          generate_release_notes: true
-          files: dist/*
-          draft: false
+          name: DemosManga-unsigned-APK
+          path: app/build/outputs/apk/release/*unsigned.apk
+          if-no-files-found: error
+          retention-days: 7

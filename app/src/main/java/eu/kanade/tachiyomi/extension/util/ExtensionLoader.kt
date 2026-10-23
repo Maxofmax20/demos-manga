@@ -48,9 +48,9 @@ internal object ExtensionLoader {
     private val getExtensionStores: GetExtensionStores by injectLazy()
     // KMK <--
 
-    private val loadNsfwSource by lazy {
-        preferences.showNsfwSource().get()
-    }
+    // KMK -->
+    private val loadNsfwSource = false
+    // KMK <--
 
     private const val EXTENSION_FEATURE = "tachiyomi.extension"
     private const val METADATA_SOURCE_CLASS = "tachiyomi.extension.class"
