@@ -74,6 +74,7 @@ import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.BackupRestoreStatus
 import eu.kanade.tachiyomi.data.LibraryUpdateStatus
 import eu.kanade.tachiyomi.data.SyncStatus
+import eu.kanade.tachiyomi.data.sync.DemosRemoteSyncJob
 import eu.kanade.tachiyomi.data.backup.create.BackupCreateJob
 import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
@@ -465,6 +466,12 @@ class MainActivity : BaseActivity() {
             elapsed <= SPLASH_MIN_DURATION || (!ready && elapsed <= SPLASH_MAX_DURATION)
         }
         setSplashScreenExitAnimation(splashScreen)
+
+        // Restore the phone owner's prior unattended-sync opt-in after upgrades/restarts.
+        // WorkManager persists periodic work, and foreground checks improve responsiveness.
+        if (isLaunch && syncPreferences.unattendedCloudSync().get()) {
+            DemosRemoteSyncJob.configure(this, true)
+        }
 
         if (isLaunch && libraryPreferences.autoClearChapterCache().get()) {
             lifecycleScope.launchIO {

@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from mcp.server.mcpserver import MCPServer
 import command_queue
 import extension_inventory
+import remote_sync
 from chapters_metadata import chapters_from_backup
 
 DATA_DIR = Path(os.getenv("MANGA_DATA_DIR", "/var/lib/demos-manga"))
@@ -197,6 +198,7 @@ async def lifespan(app: FastAPI):
     if len(SYNC_TOKEN) < 32 or len(MCP_TOKEN) < 32 or SYNC_TOKEN == MCP_TOKEN:
         raise RuntimeError("Configure two distinct random MANGA_SYNC_TOKEN and MANGA_MCP_TOKEN values (32+ chars)")
     command_queue.initialize(COMMAND_DB)
+    remote_sync.initialize(COMMAND_DB)
     async with mcp.session_manager.run():
         yield
 
@@ -253,6 +255,7 @@ async def unpair_devices(response: Response):
     _save_device_keys([])
     command_queue.revoke_all(COMMAND_DB)
     extension_inventory.revoke_all(COMMAND_DB)
+    remote_sync.revoke_all(COMMAND_DB)
     response.headers["Cache-Control"] = "no-store"
     return {"revoked": True}
 
@@ -301,6 +304,84 @@ def assistant_chapters(manga_id: str, response: Response, offset: int = 0, limit
         return []
     chapters = chapters_from_backup(BACKUP_PATH.read_bytes(), manga_id, _fields, _utf8, BLOCKED_GENRES)
     return chapters[max(0, offset):max(0, offset) + max(1, min(limit, 100))]
+
+
+
+# Unattended sync has its own deliberately narrow queue. Only the paired phone
+# can enable consent, and no general command or extension mutation uses it.
+@app.post("/api/assistant/remote-sync", status_code=202)
+async def assistant_remote_sync_request(request: Request, response: Response):
+    raw = await request.body()
+    if len(raw) > 1024:
+        raise HTTPException(413, "Sync request too large")
+    try:
+        body = json.loads(raw)
+        if not isinstance(body, dict) or set(body) != {"device_id"}:
+            raise ValueError("Only a paired device ID is accepted")
+        device_id = body["device_id"]
+        if not isinstance(device_id, str) or device_id not in [
+            d["id"] for d in _device_keys() if d["expires"] > time.time()
+        ]:
+            raise ValueError("Unknown or expired paired device")
+        result = remote_sync.request(COMMAND_DB, device_id)
+    except (TypeError, ValueError, KeyError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    response.headers["Cache-Control"] = "no-store"
+    return result
+
+
+@app.get("/api/assistant/remote-sync/{request_id}")
+def assistant_remote_sync_status(request_id: str, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    result = remote_sync.lookup(COMMAND_DB, request_id)
+    if result is None:
+        raise HTTPException(404, "Remote sync request not found")
+    return result
+
+
+@app.post("/api/device/remote-sync/consent")
+async def device_remote_sync_consent(request: Request, response: Response):
+    device_id = _device_identity(request.headers.get("X-API-Token", ""))
+    if device_id is None:
+        raise HTTPException(401, "Unauthorized")
+    raw = await request.body()
+    try:
+        if len(raw) > 200:
+            raise ValueError("Invalid consent request")
+        body = json.loads(raw)
+        if not isinstance(body, dict) or set(body) != {"enabled"}:
+            raise ValueError("Invalid consent request")
+        result = remote_sync.set_consent(COMMAND_DB, device_id, body["enabled"])
+    except (ValueError, TypeError, KeyError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    response.headers["Cache-Control"] = "no-store"
+    return result
+
+
+@app.get("/api/device/remote-sync/next")
+def device_remote_sync_next(request: Request, response: Response):
+    device_id = _device_identity(request.headers.get("X-API-Token", ""))
+    if device_id is None:
+        raise HTTPException(401, "Unauthorized")
+    response.headers["Cache-Control"] = "no-store"
+    return {"request": remote_sync.claim(COMMAND_DB, device_id)}
+
+
+@app.post("/api/device/remote-sync/{request_id}/result")
+async def device_remote_sync_result(request_id: str, request: Request, response: Response):
+    device_id = _device_identity(request.headers.get("X-API-Token", ""))
+    if device_id is None:
+        raise HTTPException(401, "Unauthorized")
+    try:
+        body = await request.json()
+        if not isinstance(body, dict) or set(body) != {"state"}:
+            raise ValueError("Invalid remote sync result")
+        if not remote_sync.finish(COMMAND_DB, device_id, request_id, body["state"]):
+            raise HTTPException(409, "Remote sync request expired or already finished")
+    except (ValueError, TypeError, KeyError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    response.headers["Cache-Control"] = "no-store"
+    return {"request_id": request_id, "state": body["state"]}
 
 
 # KMK -->

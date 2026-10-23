@@ -135,6 +135,51 @@ object DemosRemoteCommands {
         }
     }
 
+    @Serializable
+    data class RemoteSyncRequest(
+        val request_id: String,
+        val device_id: String,
+        val state: String,
+        val expires: Long,
+    )
+
+    @Serializable
+    private data class RemoteSyncEnvelope(val request: RemoteSyncRequest? = null)
+
+    /** Only a user-selected opt-in may enable this; never used for general actions. */
+    suspend fun remoteSyncConsent(prefs: SyncPreferences, enabled: Boolean) {
+        val (host, headers) = credentials(prefs)
+        val body = """{"enabled":$enabled}""".toRequestBody("application/json".toMediaType())
+        client.newCall(
+            POST(url = "$host/api/device/remote-sync/consent", headers = headers, body = body),
+        ).await().use { require(it.isSuccessful) { "Remote sync consent failed (HTTP ${it.code})" } }
+    }
+
+    suspend fun nextRemoteSync(prefs: SyncPreferences): RemoteSyncRequest? {
+        val (host, headers) = credentials(prefs)
+        return client.newCall(
+            GET(url = "$host/api/device/remote-sync/next", headers = headers),
+        ).await().use {
+            require(it.isSuccessful) { "Remote sync check failed (HTTP ${it.code})" }
+            json.decodeFromString<RemoteSyncEnvelope>(it.body.string()).request
+        }
+    }
+
+    suspend fun reportRemoteSync(prefs: SyncPreferences, id: String, completed: Boolean) {
+        require(id.matches(Regex("[0-9a-f]{32}")))
+        val (host, headers) = credentials(prefs)
+        val state = if (completed) "completed" else "failed"
+        val body = """{"state":"$state"}""".toRequestBody("application/json".toMediaType())
+        client.newCall(
+            POST(url = "$host/api/device/remote-sync/$id/result", headers = headers, body = body),
+        ).await().use { require(it.isSuccessful) { "Could not report remote sync result" } }
+    }
+
+    suspend fun reportCloudInventory(prefs: SyncPreferences) {
+        val (host, headers) = credentials(prefs)
+        reportExtensions(host, headers)
+    }
+
     private fun fingerprint(value: String): String {
         val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
         return digest.joinToString("") { "%02x".format(it) }.take(24)

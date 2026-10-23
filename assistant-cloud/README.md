@@ -12,3 +12,7 @@ Adds authenticated tools for paired-device IDs, chapter IDs/read flags, availabl
 ## Dedicated extension actions (Site v1.2.0)
 
 The Site's MCP tool registry adds `install_extension` and `uninstall_extension` alongside `list_device_extensions`. Both tools take an exact package name reported by the paired device and require explicit user authorization (`confirmed: true`). They only queue an action; the phone owner must approve in Demos Manga > Data and storage > ChatGPT cloud requests, and Android may show an independent OS installer or uninstaller prompt. Read the command state using `get_manga_action_status`. Never claim success from a queued/pending result. Exclude restricted/adult sources and untrusted package names. Keep protected backend credentials server-side. This change does not take effect in ChatGPT until the existing private Site is republished.
+
+
+### v1.3.0 phone opt-in unattended sync
+Added MCP tools `request_device_sync` and `get_device_sync_status`. Existing private Sites project identity and credentials stay unchanged. The phone owner must install Android v0.3.0 and toggle unattended cloud sync on before requests are accepted; Android WorkManager checks about every 15 minutes, subject to OS delays. Unlike general action commands, a sync only refreshes permitted library metadata and an extension inventory; all installs/uninstalls and chapter mutations still use the manual confirmation flow. **Existing Site requires republishing from this source before these tools become available in ChatGPT.**
