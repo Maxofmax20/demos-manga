@@ -270,6 +270,30 @@ def assistant_search(response: Response, query: str = "", unread_only: bool = Fa
 # KMK <--
 
 
+@app.get("/api/assistant/library")
+def assistant_library(response: Response, offset: int = 0, limit: int = 50,
+                      query: str = "", unread_only: bool = False):
+    """Safe owner-only pagination for Cinema Library; same filtered metadata
+    as search_library, with no raw backups, chapter content, or credentials.
+    Protected by the existing /api/assistant/ bearer middleware.
+    """
+    if not 0 <= offset <= 10000 or not 1 <= limit <= 100 or len(query) > 200:
+        raise HTTPException(400, "Invalid manga page")
+    response.headers["Cache-Control"] = "no-store"
+    books = get_library()
+    needle = query.casefold().strip()
+    matches = [book for book in books
+               if (not needle or needle in book["title"].casefold())
+               and (not unread_only or book["unread"] > 0)]
+    return {
+        "items": matches[offset:offset + limit],
+        "total": len(matches),
+        "offset": offset,
+        "limit": limit,
+        "has_sync_data": BACKUP_PATH.exists(),
+    }
+
+
 @app.get("/api/assistant/chapters")
 def assistant_chapters(manga_id: str, response: Response, offset: int = 0, limit: int = 100):
     response.headers["Cache-Control"] = "no-store"

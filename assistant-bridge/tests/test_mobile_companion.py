@@ -59,3 +59,23 @@ class MobileCompanionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_assistant_library_is_bearer_protected_and_paginated(tmp_path, monkeypatch):
+    # No real credentials or personal library data used in tests.
+    from fastapi.testclient import TestClient
+    import server
+    fake = [{"title": f"Safe Manga {i:03d}", "chapters": 10, "read": i % 10,
+             "unread": 10 - i % 10} for i in range(125)]
+    monkeypatch.setattr(server, "get_library", lambda: fake)
+    monkeypatch.setattr(server, "MCP_TOKEN", "x" * 48)
+    monkeypatch.setattr(server, "BACKUP_PATH", tmp_path / "not-synced.protobuf")
+    client = TestClient(server.app)
+    headers = {"Authorization": "Bearer " + "x" * 48}
+    assert client.get("/api/assistant/library").status_code == 401
+    response = client.get("/api/assistant/library?offset=100&limit=50", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["total"] == 125
+    assert len(response.json()["items"]) == 25
+    assert response.headers["cache-control"] == "no-store"
+    assert client.get("/api/assistant/library?limit=101", headers=headers).status_code == 400
