@@ -311,7 +311,12 @@ data object LibraryTab : Tab {
                         contentPadding = contentPadding,
                         currentPage = state.coercedActiveCategoryIndex,
                         hasActiveFilters = state.hasActiveFilters,
-                        showPageTabs = state.showCategoryTabs || !state.searchQuery.isNullOrEmpty(),
+                        // KMK -->
+                        // Keep existing Arabic library shelves one tap away, even
+                        // when the optional category-tab preference is disabled.
+                        showPageTabs = state.displayedCategories.size > 1 ||
+                            state.showCategoryTabs || !state.searchQuery.isNullOrEmpty(),
+                        // KMK <--
                         onChangeCurrentPage = screenModel::updateActiveCategoryIndex,
                         onClickManga = { navigator.push(MangaScreen(it)) },
                         onContinueReadingClicked = { it: LibraryManga ->

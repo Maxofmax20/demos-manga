@@ -56,6 +56,7 @@ import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -142,6 +143,14 @@ fun MangaInfoBox(
     // KMK -->
     val usePanoramaCover by Injekt.get<UiPreferences>().usePanoramaCoverMangaInfo().collectAsState()
     val topAlignCover by Injekt.get<UiPreferences>().topAlignCover().collectAsState()
+    // Verified MyAnimeList lookup is read-only, independent of user progress.
+    val malReference by produceState<MangaMalLookup.Entry?>(
+        initialValue = null,
+        key1 = manga.id,
+        key2 = manga.title,
+    ) {
+        value = MangaMalLookup.lookup(manga.title)
+    }
     // KMK <--
     Box(modifier = modifier) {
         // Backdrop
@@ -203,6 +212,8 @@ fun MangaInfoBox(
                     coverRatio = coverRatio,
                     usePanoramaCover = usePanoramaCover,
                     topAlignCover = topAlignCover,
+                    // KMK -->
+                    malReference = malReference,
                     // KMK <--
                 )
             } else {
@@ -222,6 +233,8 @@ fun MangaInfoBox(
                     onCoverLoaded = onCoverLoaded,
                     coverRatio = coverRatio,
                     usePanoramaCover = usePanoramaCover,
+                    // KMK -->
+                    malReference = malReference,
                     // KMK <--
                 )
             }
@@ -500,6 +513,8 @@ private fun MangaAndSourceTitlesLarge(
     onCoverLoaded: (DomainMangaCover) -> Unit,
     coverRatio: MutableFloatState,
     usePanoramaCover: Boolean = false,
+    // KMK -->
+    malReference: MangaMalLookup.Entry? = null,
     // KMK <--
 ) {
     Column(
@@ -519,6 +534,7 @@ private fun MangaAndSourceTitlesLarge(
                 contentDescription = stringResource(MR.strings.manga_cover),
                 onClick = onCoverClick,
                 // KMK -->
+                fallbackCoverUrl = malReference?.coverUrl,
                 onCoverLoaded = { mangaCover, result ->
                     val image = result.result.image
                     coverRatio.floatValue = image.height.toFloat() / image.width
@@ -537,6 +553,7 @@ private fun MangaAndSourceTitlesLarge(
                 contentDescription = stringResource(MR.strings.manga_cover),
                 onClick = onCoverClick,
                 // KMK -->
+                fallbackCoverUrl = malReference?.coverUrl,
                 onCoverLoaded = { mangaCover, result ->
                     val image = result.result.image
                     coverRatio.floatValue = image.height.toFloat() / image.width
@@ -550,7 +567,9 @@ private fun MangaAndSourceTitlesLarge(
             title = manga.title,
             author = manga.author,
             artist = manga.artist,
-            status = manga.status,
+            // KMK -->
+            status = malReference?.publicationStatus() ?: manga.status,
+            // KMK <--
             sourceName = sourceName,
             isStubSource = isStubSource,
             // KMK -->
@@ -563,6 +582,15 @@ private fun MangaAndSourceTitlesLarge(
             onSourceClick = onSourceClick,
             // KMK <--
         )
+        // KMK -->
+        malReference?.let { entry ->
+            Text(
+                text = stringResource(KMR.strings.mal_publication_reference, entry.status),
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+        // KMK <--
     }
 }
 
@@ -584,6 +612,8 @@ private fun MangaAndSourceTitlesSmall(
     coverRatio: MutableFloatState,
     usePanoramaCover: Boolean = false,
     topAlignCover: Boolean = false,
+    // KMK -->
+    malReference: MangaMalLookup.Entry? = null,
     // KMK <--
 ) {
     Row(
@@ -608,6 +638,7 @@ private fun MangaAndSourceTitlesSmall(
                 contentDescription = stringResource(MR.strings.manga_cover),
                 onClick = onCoverClick,
                 // KMK -->
+                fallbackCoverUrl = malReference?.coverUrl,
                 onCoverLoaded = { mangaCover, result ->
                     val image = result.result.image
                     coverRatio.floatValue = image.height.toFloat() / image.width
@@ -630,6 +661,7 @@ private fun MangaAndSourceTitlesSmall(
                 contentDescription = stringResource(MR.strings.manga_cover),
                 onClick = onCoverClick,
                 // KMK -->
+                fallbackCoverUrl = malReference?.coverUrl,
                 onCoverLoaded = { mangaCover, result ->
                     val image = result.result.image
                     coverRatio.floatValue = image.height.toFloat() / image.width
@@ -645,7 +677,9 @@ private fun MangaAndSourceTitlesSmall(
                 title = manga.title,
                 author = manga.author,
                 artist = manga.artist,
-                status = manga.status,
+                // KMK -->
+                status = malReference?.publicationStatus() ?: manga.status,
+                // KMK <--
                 sourceName = sourceName,
                 isStubSource = isStubSource,
                 // KMK -->
@@ -657,6 +691,15 @@ private fun MangaAndSourceTitlesSmall(
                 onSourceClick = onSourceClick,
                 // KMK <--
             )
+            // KMK -->
+            malReference?.let { entry ->
+                Text(
+                    text = stringResource(KMR.strings.mal_publication_reference, entry.status),
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+            // KMK <--
         }
     }
 }
@@ -1040,3 +1083,14 @@ private fun RowScope.MangaActionButton(
         }
     }
 }
+
+// KMK -->
+/** Source completion may be stale; MAL publication is display-only. */
+private fun MangaMalLookup.Entry.publicationStatus(): Long = when (status) {
+    "Publishing" -> SManga.ONGOING.toLong()
+    "Finished" -> SManga.COMPLETED.toLong()
+    "On Hiatus" -> SManga.ON_HIATUS.toLong()
+    "Discontinued" -> SManga.CANCELLED.toLong()
+    else -> SManga.UNKNOWN.toLong()
+}
+// KMK <--
