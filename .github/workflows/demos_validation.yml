@@ -1,0 +1,29 @@
+name: Demos Manga validation
+on:
+  pull_request:
+  push:
+    branches:
+      - 'feat/**'
+  workflow_dispatch:
+
+jobs:
+  bridge:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r assistant-bridge/requirements.txt
+      - run: cd assistant-bridge && python -m unittest discover -s tests -v
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew spotlessCheck
+      - run: ./gradlew assembleDebug

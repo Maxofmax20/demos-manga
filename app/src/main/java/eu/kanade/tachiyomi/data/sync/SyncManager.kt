@@ -80,23 +80,46 @@ class SyncManager(
         }
 
         val syncOptions = syncPreferences.getSyncSettings()
+        // KMK -->
+        // Our SyncYomi-compatible assistant bridge must never receive app, tracker,
+        // account, extension-store, source, or private preference payloads.
+        val isDemosBridgeSync = SyncService.fromInt(syncPreferences.syncService().get()) == SyncService.SYNCYOMI
+        // KMK <--
         val databaseManga = getAllMangaThatNeedsSync()
 
         val backupOptions = BackupOptions(
             libraryEntries = syncOptions.libraryEntries,
             categories = syncOptions.categories,
             chapters = syncOptions.chapters,
-            tracking = syncOptions.tracking,
-            history = syncOptions.history,
-            extensionStores = syncOptions.extensionStores,
-            appSettings = syncOptions.appSettings,
-            sourceSettings = syncOptions.sourceSettings,
-            privateSettings = syncOptions.privateSettings,
+            // KMK -->
+            tracking = !isDemosBridgeSync && syncOptions.tracking,
+            // KMK <--
+            // KMK -->
+            history = !isDemosBridgeSync && syncOptions.history,
+            // KMK <--
+            // KMK -->
+            extensionStores = !isDemosBridgeSync && syncOptions.extensionStores,
+            // KMK <--
+            // KMK -->
+            appSettings = !isDemosBridgeSync && syncOptions.appSettings,
+            // KMK <--
+            // KMK -->
+            sourceSettings = !isDemosBridgeSync && syncOptions.sourceSettings,
+            // KMK <--
+            // KMK -->
+            privateSettings = !isDemosBridgeSync && syncOptions.privateSettings,
+            // KMK <--
 
             // SY -->
-            customInfo = syncOptions.customInfo,
-            readEntries = syncOptions.readEntries,
-            savedSearchesFeeds = syncOptions.savedSearchesFeeds,
+            // KMK -->
+            customInfo = !isDemosBridgeSync && syncOptions.customInfo,
+            // KMK <--
+            // KMK -->
+            readEntries = !isDemosBridgeSync && syncOptions.readEntries,
+            // KMK <--
+            // KMK -->
+            savedSearchesFeeds = !isDemosBridgeSync && syncOptions.savedSearchesFeeds,
+            // KMK <--
             // SY <--
         )
 

@@ -1,0 +1,18 @@
+{
+  "name": "demos-manga",
+  "version": "0.1.0",
+  "description": "Read-only ChatGPT companion for your own synchronized manga library.",
+  "author": {"name": "Demos"},
+  "repository": "https://github.com/Maxofmax20/demos-manga",
+  "license": "Apache-2.0",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Demos Manga",
+    "shortDescription": "Your manga reading library",
+    "longDescription": "Private read-only access to manga library titles and reading progress, synchronized from your Android reader. Requires secure MCP authentication.",
+    "developerName": "Demos",
+    "category": "Productivity",
+    "capabilities": ["Search synced library", "Count unread chapters", "Summarize progress"]
+  }
+}
