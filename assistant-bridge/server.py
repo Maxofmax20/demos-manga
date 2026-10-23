@@ -324,6 +324,16 @@ async def assistant_create_command(request: Request, response: Response):
         device_id = content["device_id"]
         if not isinstance(device_id, str) or device_id not in [d["id"] for d in _device_keys() if d["expires"] > time.time()]:
             raise ValueError("Unknown or expired paired device")
+        command_queue.validate_command(content["action"], content["args"])
+        if content["action"] in {"install_extension", "uninstall_extension"}:
+            snapshot = extension_inventory.get(COMMAND_DB, device_id)
+            if snapshot["updated"] is None or time.time() - snapshot["updated"] > 24 * 3600:
+                raise ValueError("Extension inventory missing or stale. Open ChatGPT cloud requests on your phone to refresh.")
+            package = content["args"]["package_name"]
+            matches = [e for e in snapshot["extensions"] if e["package_name"] == package]
+            required_state = content["action"] == "uninstall_extension"
+            if len(matches) != 1 or matches[0]["installed"] != required_state:
+                raise ValueError("Extension is not in the required available/installed state on your phone")
         command_queue.initialize(COMMAND_DB)
         result = command_queue.create(COMMAND_DB, device_id, content["action"], content["args"])
     except (ValueError, TypeError, KeyError) as exc:

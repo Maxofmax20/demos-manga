@@ -30,13 +30,16 @@ def _safe_item(item):
 def store(db_path, device_id: str, raw_items: list[dict]) -> int:
     if not isinstance(raw_items, list) or len(raw_items) > 400:
         raise ValueError("Invalid extensions snapshot")
-    clean = []
-    seen = set()
+    # A package appears once: an installed entry overrides an available one.
+    by_package = {}
     for item in raw_items:
         entry = _safe_item(item)
-        if entry is not None and (entry["package_name"], entry["installed"]) not in seen:
-            clean.append(entry)
-            seen.add((entry["package_name"], entry["installed"]))
+        if entry is None:
+            continue
+        old = by_package.get(entry["package_name"])
+        if old is None or (not old["installed"] and entry["installed"]):
+            by_package[entry["package_name"]] = entry
+    clean = list(by_package.values())
     with sqlite3.connect(db_path) as db:
         db.execute("""CREATE TABLE IF NOT EXISTS extension_inventory (
             device_id TEXT PRIMARY KEY, payload_json TEXT NOT NULL, updated INTEGER NOT NULL
