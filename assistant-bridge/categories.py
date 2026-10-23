@@ -12,7 +12,8 @@ def initialize(path):
 CREATE TABLE IF NOT EXISTS category_previews(id TEXT PRIMARY KEY,device TEXT NOT NULL,revision TEXT NOT NULL,created INTEGER NOT NULL,data TEXT NOT NULL,command_id TEXT UNIQUE);
 CREATE TABLE IF NOT EXISTS category_titles(device TEXT NOT NULL,id TEXT NOT NULL,title TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(device,id));""")
 def category_ids(value):
- if not isinstance(value,list) or len(value)>500 or any(not isinstance(x,str) or not re.fullmatch(r"[1-9][0-9]{0,17}",x) for x in value) or len(set(value))!=len(value):raise ValueError("Category IDs must be unique positive decimal strings; Default uses an empty list")
+ if not isinstance(value,list) or len(value)>500 or any(not isinstance(x,str) or not re.fullmatch(r"[1-9][0-9]{0,18}",x) for x in value) or len(set(value))!=len(value):raise ValueError("Category IDs must be unique positive decimal strings; Default uses an empty list")
+ if any(int(v)>9223372036854775807 for v in value):raise ValueError('Category ID exceeds Android Long range')
  return sorted(value,key=int)
 def validate_snapshot(s):
  if not isinstance(s,dict) or set(s)!={"revision","scopes","categories","manga"} or not REV.fullmatch(str(s.get("revision",""))):raise ValueError("Invalid category snapshot")
@@ -25,8 +26,9 @@ def validate_snapshot(s):
  if not isinstance(cats,list) or len(cats)>500 or not isinstance(books,list) or len(books)>20000:raise ValueError("Snapshot too large")
  seen=set()
  for c in cats:
-  if not isinstance(c,dict) or set(c)!={"id","name","order","hidden","flags"} or not re.fullmatch(r"0|[1-9][0-9]{0,17}",str(c['id'])) or c['id'] in seen:raise ValueError("Invalid or duplicate category")
+  if not isinstance(c,dict) or set(c)!={"id","name","order","hidden","flags"} or not re.fullmatch(r"0|[1-9][0-9]{0,18}",str(c['id'])) or c['id'] in seen:raise ValueError("Invalid or duplicate category")
   if not isinstance(c['name'],str) or len(c['name'])>1000 or type(c['order']) is not int or type(c['hidden']) is not bool or not isinstance(c['flags'],str):raise ValueError("Invalid category fields")
+  if int(c['id'])>9223372036854775807:raise ValueError('Category ID exceeds Android Long range')
   seen.add(c['id'])
  if '0' not in seen:raise ValueError("Missing Android Default category")
  mids=set()

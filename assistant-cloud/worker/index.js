@@ -17,10 +17,10 @@ TOOLS.push(
 );
 const categoryDevice={device_id:{type:'string',pattern:'^[0-9a-f]{16}$'}};
 const paging={offset:{type:'integer',minimum:0,maximum:1000000,default:0},limit:{type:'integer',minimum:1,maximum:100,default:100}};
-const categoryId={type:'string',pattern:'^(0|[1-9][0-9]{0,17})$'};
+const categoryId={type:'string',pattern:'^(0|[1-9][0-9]{0,18})$'};
 const revisionField={type:'string',pattern:'^[0-9a-f]{64}$'};
 const previewField={type:'string',pattern:'^[0-9a-f]{32}$'};
-const changeSchema={type:'object',properties:{manga_id:{type:'string',pattern:'^[0-9a-f]{24}$'},category_ids:{type:'array',items:{type:'string',pattern:'^[1-9][0-9]{0,17}$'},uniqueItems:true,maxItems:500},mode:{type:'string',enum:['add','remove','replace']}},required:['manga_id','category_ids','mode'],additionalProperties:false};
+const changeSchema={type:'object',properties:{manga_id:{type:'string',pattern:'^[0-9a-f]{24}$'},category_ids:{type:'array',items:{type:'string',pattern:'^[1-9][0-9]{0,18}$'},uniqueItems:true,maxItems:500},mode:{type:'string',enum:['add','remove','replace']}},required:['manga_id','category_ids','mode'],additionalProperties:false};
 const CATEGORY_READS=new Set(['list_categories','get_category','list_category_manga','get_manga_categories','list_library','list_uncategorized_manga','get_category_change_history']);
 const CATEGORY_WRITES=new Set(['preview_category_changes','reorder_categories','apply_category_changes','set_manga_categories','bulk_set_manga_categories','undo_category_changes']);
 TOOLS.push(
@@ -52,7 +52,7 @@ export function argumentsFor(name,args){
   for(const key of tool.inputSchema.required??[])if(args[key]===undefined)throw Error('Missing '+key);
   if(args.expected_revision!==undefined&&!/^[0-9a-f]{64}$/.test(args.expected_revision))throw Error('Invalid category revision');
   if(args.preview_id!==undefined&&!HEX32.test(args.preview_id))throw Error('Invalid preview ID');
-  if(args.category_id!==undefined&&!/^(0|[1-9][0-9]{0,17})$/.test(args.category_id))throw Error('Invalid category ID');
+  if(args.category_id!==undefined&&!/^(0|[1-9][0-9]{0,18})$/.test(args.category_id))throw Error('Invalid category ID');
   if(args.manga_id!==undefined&&!HEX24.test(args.manga_id))throw Error('Invalid manga ID');
   if(args.confirmed!==undefined&&args.confirmed!==true)throw Error('Explicit approval required');
   if(args.offset!==undefined&&(!Number.isInteger(args.offset)||args.offset<0||args.offset>1000000))throw Error('Invalid offset');
@@ -111,7 +111,7 @@ export function metadata(name,data){
   if(!data||typeof data!=='object'||Array.isArray(data))throw Error('Invalid category response');
   const allowed=['device_id','revision','updated','categories','items','total','offset','limit','next_offset','preview_id','expected_revision','changes','category_order','state','expires','command_id','action'];
   const safe={};for(const key of allowed)if(data[key]!==undefined)safe[key]=data[key];
-  const cid=v=>typeof v==='string'&&/^(0|[1-9][0-9]{0,17})$/.test(v);
+  const cid=v=>typeof v==='string'&&/^(0|[1-9][0-9]{0,18})$/.test(v);
   const ids=v=>Array.isArray(v)&&v.length<=500&&v.every(cid)&&new Set(v).size===v.length;
   const text=v=>typeof v==='string'&&v.length<=1000;
   const book=m=>{if(!HEX24.test(m?.id)||!text(m.title)||!ids(m.category_ids))throw Error('Invalid category manga metadata');return {id:m.id,title:m.title,category_ids:m.category_ids};};

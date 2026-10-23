@@ -49,3 +49,14 @@ class CategoryTests(unittest.TestCase):
   broken=copy.deepcopy(self.snapshot);broken['manga'][1]['id']=broken['manga'][0]['id']
   with self.assertRaises(ValueError):categories.store(self.db,'phone',broken)
   self.assertEqual(categories.page(self.db,'phone')['total'],219)
+
+ def test_category_ids_keep_full_android_long_precision(self):
+  self.assertEqual(categories.category_ids(['9223372036854775807']),['9223372036854775807'])
+  with self.assertRaises(ValueError):categories.category_ids(['9223372036854775808'])
+
+ def test_expired_category_command_remains_in_audit_after_new_legacy_request(self):
+  import sqlite3
+  p=self.preview();queued=categories.apply(self.db,'phone',p['preview_id'],True,command_queue)
+  with sqlite3.connect(self.db) as db:db.execute('UPDATE commands SET expires=1 WHERE command_id=?',(queued['command_id'],))
+  command_queue.create(self.db,'phone','open_screen',{'screen':'library'})
+  self.assertEqual(command_queue.lookup(self.db,queued['command_id'])['state'],'expired')

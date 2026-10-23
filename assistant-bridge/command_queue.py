@@ -89,7 +89,7 @@ def create(path: Path, device_id: str, action: str, params: dict) -> dict:
     validate_command(action, params)
     now = int(time.time())
     with sqlite3.connect(path, timeout=5) as db:
-        db.execute("DELETE FROM commands WHERE expires < ? AND state = 'pending_confirmation'", (now,))
+        db.execute("UPDATE commands SET state='expired' WHERE expires < ? AND state = 'pending_confirmation'", (now,))
         count = db.execute(
             "SELECT COUNT(*) FROM commands WHERE device_id=? AND state='pending_confirmation' AND expires>?",
             (device_id, now),

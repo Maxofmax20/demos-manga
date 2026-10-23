@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.sync.service
 
+import android.app.Application
 import android.content.Context
 import eu.kanade.domain.sync.SyncPreferences
 import eu.kanade.tachiyomi.extension.ExtensionManager
@@ -14,9 +15,11 @@ import okhttp3.Headers
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.data.DatabaseHandler
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.manga.repository.MangaRepository
+import tachiyomi.i18n.kmk.KMR
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.security.MessageDigest
@@ -94,7 +97,7 @@ object DemosCategoryControl {
         val body = json.encodeToString(snapshot).toRequestBody("application/json".toMediaType())
         val headers = Headers.Builder().add("X-API-Token", prefs.clientAPIKey().get()).build()
         client.newCall(POST("$host/api/device/category-snapshot", headers, body)).await().use {
-            require(it.isSuccessful) { "Category metadata sync failed (HTTP ${it.code})" }
+            require(it.isSuccessful) { Injekt.get<Application>().stringResource(KMR.strings.demos_category_sync_failed, it.code) }
         }
     }
 
@@ -102,9 +105,9 @@ object DemosCategoryControl {
     suspend fun execute(context: Context, command: DemosRemoteCommands.Command): Boolean {
         val prefs = Injekt.get<SyncPreferences>()
         require(prefs.remoteScope("read_library").get() && prefs.remoteScope("organize_library").get()) {
-            "Enable library read and organization scopes on this phone first"
+            context.stringResource(KMR.strings.demos_category_scope_required)
         }
-        require(command.expires > System.currentTimeMillis() / 1000) { "Category request expired" }
+        require(command.expires > System.currentTimeMillis() / 1000) { context.stringResource(KMR.strings.demos_category_expired) }
         val proposal = json.decodeFromString<Proposal>(JsonObject(command.args).toString())
         require(proposal.changes.size <= 500)
         val handler = Injekt.get<DatabaseHandler>()
@@ -119,7 +122,7 @@ object DemosCategoryControl {
         // old proposals on the server, so enabling the scope again cannot revive them.
         val current = DemosRemoteCommands.pending(prefs).singleOrNull { it.command_id == command.command_id }
         require(current != null && current.action == command.action && current.args == command.args) {
-            "This category request was revoked, expired or already resolved"
+            context.stringResource(KMR.strings.demos_category_request_unavailable)
         }
         // Reads, conflict detection, all membership writes and the durable replay journal
         // share a single SQLDelight transaction. An exception rolls everything back.
@@ -129,14 +132,14 @@ object DemosCategoryControl {
             }
             require(prefs.remoteScope("read_library").get() && prefs.remoteScope("organize_library").get())
             val before = state()
-            require(revision(before) == proposal.expected_revision) { "Library changed on phone. Refresh and preview again." }
+            require(revision(before) == proposal.expected_revision) { context.stringResource(KMR.strings.demos_category_revision_conflict) }
             val categoryIds = before.categories.filter { it.id != "0" }.map { it.id }.toSet()
             val books = before.manga.associateBy { it.id }
             require(proposal.changes.map { it.manga_id }.distinct().size == proposal.changes.size)
             val repository = Injekt.get<MangaRepository>()
             val localIds = repository.getFavorites().associate { mangaId(it.source, it.url) to it.id }
             proposal.changes.forEach { change ->
-                require(books[change.manga_id]?.category_ids == change.before) { "Membership revision conflict" }
+                require(books[change.manga_id]?.category_ids == change.before) { context.stringResource(KMR.strings.demos_category_revision_conflict) }
                 require(change.after.distinct().size == change.after.size && categoryIds.containsAll(change.after))
                 // Use repository directly: the legacy SetMangaCategories interactor swallows
                 // errors, which would prevent reliable transaction rollback for bulk edits.
@@ -148,7 +151,7 @@ object DemosCategoryControl {
                     categoriesQueries.update(null, index.toLong(), null, null, id.toLong())
                 }
             }
-            require(prefs.remoteScope("organize_library").get()) { "Organization permission was revoked" }
+            require(prefs.remoteScope("organize_library").get()) { context.stringResource(KMR.strings.demos_category_scope_required) }
             val after = state()
             remote_category_commitsQueries.recordCommit(
                 command.command_id,

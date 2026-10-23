@@ -243,4 +243,10 @@
     <string name="demos_scope_read_help">Uploads permitted titles and exact category memberships from this phone. Default off.</string>
     <string name="demos_scope_organize_help">Requires a reviewed preview and phone approval. Revocable at any time.</string>
     <string name="demos_scope_save_failed">Saved on phone. Open cloud requests online to refresh server permissions.</string>
+    <string name="demos_category_sync_failed">Category metadata sync failed (HTTP %1$d)</string>
+    <string name="demos_category_scope_required">Enable library read and organization scopes on this phone first.</string>
+    <string name="demos_category_expired">Category request expired.</string>
+    <string name="demos_category_request_unavailable">This category request was revoked, expired, or already resolved.</string>
+    <string name="demos_category_revision_conflict">Library changed on this phone. Refresh and preview again.</string>
+    <string name="demos_category_approve_preview">Apply category preview %1$s (%2$d titles)? Reading progress will be preserved.</string>
 </resources>
