@@ -249,4 +249,7 @@
     <string name="demos_category_request_unavailable">This category request was revoked, expired, or already resolved.</string>
     <string name="demos_category_revision_conflict">Library changed on this phone. Refresh and preview again.</string>
     <string name="demos_category_approve_preview">Apply category preview %1$s (%2$d titles)? Reading progress will be preserved.</string>
+    <!-- KMK -->
+    <string name="mal_publication_reference">Publication: %1$s · MyAnimeList</string>
+    <!-- KMK -->
 </resources>

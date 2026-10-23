@@ -28,6 +28,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
 import coil3.compose.SubcomposeAsyncImage
 import eu.kanade.presentation.manga.components.MangaCover.Companion.COVER_TEMPLATE_SIZE_BIG
@@ -59,6 +60,9 @@ enum class MangaCover(val ratio: Float) {
         data: Any?,
         modifier: Modifier = Modifier,
         contentDescription: String = "",
+        // KMK -->
+        fallbackCoverUrl: String? = null,
+        // KMK <--
         shape: Shape = MaterialTheme.shapes.extraSmall,
         onClick: (() -> Unit)? = null,
         // KMK -->
@@ -119,25 +123,38 @@ enum class MangaCover(val ratio: Float) {
                 }
             },
             error = {
-                Box(
-                    modifier = modifierColored,
-                ) {
-                    Image(
-                        imageVector = ImageVector.vectorResource(R.drawable.cover_error_vector),
-                        contentDescription = contentDescription,
-                        modifier = Modifier
-                            .size(
-                                when (size) {
-                                    Size.Big -> COVER_TEMPLATE_SIZE_BIG
-                                    Size.Medium -> COVER_TEMPLATE_SIZE_MEDIUM
-                                    else -> COVER_TEMPLATE_SIZE_NORMAL
-                                },
-                            )
-                            .align(Alignment.Center),
-                        colorFilter = ColorFilter.tint(
-                            tint?.let { Color(it) } ?: CoverPlaceholderOnBgColor,
-                        ),
-                    )
+                Box(modifier = modifierColored) {
+                    // KMK -->
+                    // The original Komikku cover is always attempted first.
+                    // Only an exact-title MAL match may provide fallback art.
+                    if (fallbackCoverUrl != null) {
+                        AsyncImage(
+                            model = fallbackCoverUrl,
+                            contentDescription = contentDescription,
+                            modifier = Modifier.matchParentSize(),
+                            contentScale = scale,
+                        )
+                    } else {
+                        // KMK <--
+                        Image(
+                            imageVector = ImageVector.vectorResource(R.drawable.cover_error_vector),
+                            contentDescription = contentDescription,
+                            modifier = Modifier
+                                .size(
+                                    when (size) {
+                                        Size.Big -> COVER_TEMPLATE_SIZE_BIG
+                                        Size.Medium -> COVER_TEMPLATE_SIZE_MEDIUM
+                                        else -> COVER_TEMPLATE_SIZE_NORMAL
+                                    },
+                                )
+                                .align(Alignment.Center),
+                            colorFilter = ColorFilter.tint(
+                                tint?.let { Color(it) } ?: CoverPlaceholderOnBgColor,
+                            ),
+                        )
+                        // KMK -->
+                    }
+                    // KMK <--
                 }
             },
             onSuccess = { result ->
