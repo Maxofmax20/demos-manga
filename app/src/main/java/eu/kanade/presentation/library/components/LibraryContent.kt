@@ -1,20 +1,28 @@
 package eu.kanade.presentation.library.components
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.dp
 import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.delay
@@ -57,6 +65,9 @@ fun LibraryContent(
         ),
     ) {
         val pagerState = rememberPagerState(currentPage) { categories.size }
+        var selectedShelfName by rememberSaveable { mutableStateOf(LibraryShelf.ALL.name) }
+        val selectedShelf = LibraryShelf.valueOf(selectedShelfName)
+        val activeItems = categories.getOrNull(pagerState.currentPage)?.let(getItemsForCategory).orEmpty()
 
         val scope = rememberCoroutineScope()
         var isRefreshing by remember(pagerState.currentPage) { mutableStateOf(false) }
@@ -87,6 +98,27 @@ fun LibraryContent(
             )
         }
 
+        // Virtual progress shelves are scoped to the current category and always
+        // reflect local reading progress. They never modify stored categories.
+        if (categories.isNotEmpty()) {
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(LibraryShelf.entries) { shelf ->
+                    val count = activeItems.count { item ->
+                        shelf.matches(item.libraryManga.readCount, item.libraryManga.totalChapters)
+                    }
+                    FilterChip(
+                        selected = selectedShelf == shelf,
+                        onClick = { selectedShelfName = shelf.name },
+                        label = { Text("${shelf.label} ($count)") },
+                    )
+                }
+            }
+        }
+
         PullRefresh(
             refreshing = isRefreshing,
             enabled = selection.isEmpty(),
@@ -111,7 +143,19 @@ fun LibraryContent(
                 getCategoryForPage = { page -> categories[page] },
                 getDisplayMode = getDisplayMode,
                 getColumnsForOrientation = getColumnsForOrientation,
-                getItemsForCategory = getItemsForCategory,
+                getItemsForCategory = { category ->
+                    val items = getItemsForCategory(category).filter { item ->
+                        selectedShelf.matches(item.libraryManga.readCount, item.libraryManga.totalChapters)
+                    }
+                    if (selectedShelf == LibraryShelf.READING) {
+                        items.sortedWith(
+                            compareByDescending<LibraryItem> { it.libraryManga.lastRead }
+                                .thenBy { it.libraryManga.manga.title },
+                        )
+                    } else {
+                        items
+                    }
+                },
                 onClickManga = { category, manga ->
                     if (selection.isNotEmpty()) {
                         onToggleSelection(category, manga)
