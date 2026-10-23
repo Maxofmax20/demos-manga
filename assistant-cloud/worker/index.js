@@ -1,5 +1,5 @@
 const BASE='https://manga.demos25.me';
-const VERSION='1.2.0';
+const VERSION='1.3.0';
 const TOOLS=[{name:'library_stats',description:'Read aggregate progress and sync status from your own synchronized manga library.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}},{name:'search_library',description:'Search your own permitted library metadata; no chapters, images, settings or raw backups.',inputSchema:{type:'object',properties:{query:{type:'string',maxLength:200,default:''},unread_only:{type:'boolean',default:false},limit:{type:'integer',minimum:1,maximum:100,default:25}},additionalProperties:false},annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}}];
 const safeTool=(name,description,properties,required=[],readOnly=true)=>({name,description,inputSchema:{type:'object',properties,required,additionalProperties:false},annotations:{readOnlyHint:readOnly,destructiveHint:!readOnly,openWorldHint:false}});
 const HEX24=/^[0-9a-f]{24}$/;const HEX32=/^[0-9a-f]{32}$/;const DEVICE=/^[0-9a-f]{16}$/;
@@ -11,7 +11,9 @@ TOOLS.push(
  safeTool('install_extension','Request installation of a known, non-restricted manga extension on your paired phone. The phone owner must approve this request and Android must approve the installation.',{device_id:{type:'string',pattern:'^[0-9a-f]{16}$'},package_name:{type:'string',maxLength:180},confirmed:{type:'boolean',description:'True only after user explicitly requested installation of this exact extension.'}},['device_id','package_name','confirmed'],false),
  safeTool('uninstall_extension','Request uninstallation of a known, non-restricted manga extension. Phone and Android system approval are required.',{device_id:{type:'string',pattern:'^[0-9a-f]{16}$'},package_name:{type:'string',maxLength:180},confirmed:{type:'boolean',description:'True only after user explicitly requested removal of this exact extension.'}},['device_id','package_name','confirmed'],false),
  safeTool('request_manga_action','Queue one explicitly user-confirmed action for Android phone approval. Returns pending status, never execution success.',{device_id:{type:'string',pattern:'^[0-9a-f]{16}$'},action:{type:'string',enum:Array.from(ACTIONS)},args:{type:'object'},confirmed:{type:'boolean',description:'Must be true only after the owner explicitly authorizes this specific action.'}},['device_id','action','args','confirmed'],false),
- safeTool('get_manga_action_status','Read a requested action status (pending, rejected, failed, completed or expired).',{command_id:{type:'string',pattern:'^[0-9a-f]{32}$'}},['command_id'])
+ safeTool('get_manga_action_status','Read a requested action status (pending, rejected, failed, completed or expired).',{command_id:{type:'string',pattern:'^[0-9a-f]{32}$'}},['command_id']),
+ safeTool('request_device_sync','Request a phone-side library and extension inventory sync. Requires one-time unattended-sync opt-in in Android settings; no per-sync phone approval.',{device_id:{type:'string',pattern:'^[0-9a-f]{16}$'}},['device_id'],false),
+ safeTool('get_device_sync_status','Check pending, running, completed, failed, expired, or cancelled phone-side sync status.',{request_id:{type:'string',pattern:'^[0-9a-f]{32}$'}},['request_id'])
 );
 const HEADERS={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{...HEADERS,'Content-Type':'application/json; charset=utf-8'}});
@@ -24,6 +26,14 @@ export function argumentsFor(name,args){
  if(name==='list_manga_chapters'){
   if(!HEX24.test(args.manga_id)||!Number.isInteger(args.offset??0)||(args.offset??0)<0||(args.offset??0)>100000||!Number.isInteger(args.limit??100)||(args.limit??100)<1||(args.limit??100)>100)throw Error('Invalid chapter query');
   return {manga_id:args.manga_id,offset:args.offset??0,limit:args.limit??100};
+ }
+ if(name==='request_device_sync'){
+  if(!DEVICE.test(args.device_id))throw Error('Invalid paired device ID');
+  return {device_id:args.device_id};
+ }
+ if(name==='get_device_sync_status'){
+  if(!HEX32.test(args.request_id))throw Error('Invalid remote sync ID');
+  return {request_id:args.request_id};
  }
  if(name==='list_device_extensions'){
   if(!DEVICE.test(args.device_id))throw Error('Invalid paired device ID');return {device_id:args.device_id};
@@ -51,6 +61,12 @@ export function argumentsFor(name,args){
 }
 export function metadata(name,data){
  const integer=v=>Number.isSafeInteger(v)&&v>=0;
+ if(name==='request_device_sync'||name==='get_device_sync_status'){
+  const states=['pending','running','completed','failed','expired','cancelled'];
+  if(!HEX32.test(data?.request_id)||!DEVICE.test(data?.device_id)||!states.includes(data.state)||!integer(data.expires)||!integer(data.updated))
+    throw Error('Invalid remote sync status');
+  return {request_id:data.request_id,device_id:data.device_id,state:data.state,updated:data.updated,expires:data.expires};
+ }
  if(name==='list_paired_devices'){
   if(!Array.isArray(data)||data.length>3)throw Error('Invalid paired devices response');
   return data.map(d=>{if(!DEVICE.test(d.device_id)||!integer(d.expires))throw Error('Invalid paired device');return {device_id:d.device_id,expires:d.expires};});
@@ -81,7 +97,7 @@ export async function backend(path,env,{method='GET',payload,fetcher=(...args)=>
  if(!env.MANGA_MCP_TOKEN||env.MANGA_MCP_TOKEN.length<32)throw Error('The protected backend connection is not configured.');
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
  try{
-  const response=await fetcher(BASE+path,{method,redirect:'manual',headers:{Authorization:'Bearer '+env.MANGA_MCP_TOKEN,Accept:'application/json','User-Agent':'Demos-Manga-Cloud/1.1',...(payload!==undefined?{'Content-Type':'application/json'}:{})},...(payload!==undefined?{body:JSON.stringify(payload)}:{}),signal:controller.signal});
+  const response=await fetcher(BASE+path,{method,redirect:'manual',headers:{Authorization:'Bearer '+env.MANGA_MCP_TOKEN,Accept:'application/json','User-Agent':'Demos-Manga-Cloud/1.3',...(payload!==undefined?{'Content-Type':'application/json'}:{})},...(payload!==undefined?{body:JSON.stringify(payload)}:{}),signal:controller.signal});
   if(response.status===401||response.status===403)throw Error('Backend authorization rejected. The owner must check the protected connection and edge policy.');
   if(response.status>=300&&response.status<400)throw Error('Backend redirected the request; credentials were not forwarded.');
   if(!response.ok)throw Error('Backend returned HTTP '+response.status+'. No write was retried.');
@@ -103,6 +119,8 @@ export async function execute(name,args,env,fetcher){
   else if(name==='list_manga_chapters')path='/api/assistant/chapters?'+new URLSearchParams({manga_id:args.manga_id,offset:String(args.offset),limit:String(args.limit)});
   else if(name==='list_device_extensions')path='/api/assistant/extensions?'+new URLSearchParams({device_id:args.device_id});
   else if(name==='get_manga_action_status')path='/api/assistant/commands/'+args.command_id;
+  else if(name==='request_device_sync'){path='/api/assistant/remote-sync';method='POST';payload=args;}
+  else if(name==='get_device_sync_status')path='/api/assistant/remote-sync/'+args.request_id;
   else if(['request_manga_action','install_extension','uninstall_extension'].includes(name)){path='/api/assistant/commands';method='POST';payload=args;}
   else throw Error('Unknown action.');
   const result=metadata(name,await backend(path,env,{method,payload,fetcher}));

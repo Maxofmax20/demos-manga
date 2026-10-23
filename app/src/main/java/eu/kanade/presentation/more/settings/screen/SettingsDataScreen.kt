@@ -65,6 +65,7 @@ import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.cache.PagePreviewCache
 import eu.kanade.tachiyomi.data.export.LibraryExporter
 import eu.kanade.tachiyomi.data.export.LibraryExporter.ExportOptions
+import eu.kanade.tachiyomi.data.sync.DemosRemoteSyncJob
 import eu.kanade.tachiyomi.data.sync.SyncDataJob
 import eu.kanade.tachiyomi.data.sync.SyncManager
 import eu.kanade.tachiyomi.data.sync.service.DemosRemoteCommands
@@ -592,7 +593,10 @@ object SettingsDataScreen : SearchableSettings {
 
         return if (syncServiceType != SyncManager.SyncService.NONE) {
             basePreferences + getAdditionalPreferences(syncPreferences) +
-                (if (syncServiceType == SyncManager.SyncService.SYNCYOMI) listOf(getRemoteCommandsPref(syncPreferences)) else emptyList())
+                (if (syncServiceType == SyncManager.SyncService.SYNCYOMI) listOf(
+                    getRemoteCommandsPref(syncPreferences),
+                    getRemoteSyncPref(syncPreferences),
+                ) else emptyList())
         } else {
             basePreferences
         }
@@ -706,6 +710,41 @@ object SettingsDataScreen : SearchableSettings {
         )
     }
     // KMK <--
+
+    @Composable
+    private fun getRemoteSyncPref(syncPreferences: SyncPreferences): Preference.PreferenceItem.SwitchPreference {
+        val context = LocalContext.current
+        return Preference.PreferenceItem.SwitchPreference(
+            preference = syncPreferences.unattendedCloudSync(),
+            title = "Allow ChatGPT to trigger sync automatically",
+            subtitle = "One-time opt-in. Background checks about every 15 minutes (Android may delay). " +
+                "Only library sync and extension inventory; other cloud actions still need approval.",
+            onValueChanged = { enabled ->
+                if (!enabled) {
+                    // Revocation always takes effect locally, even without network.
+                    syncPreferences.unattendedCloudSync().set(false)
+                    DemosRemoteSyncJob.configure(context, false)
+                    try {
+                        DemosRemoteCommands.remoteSyncConsent(syncPreferences, false)
+                    } catch (_: Exception) {
+                        context.toast("Disabled on phone. Cloud revocation needs an internet connection.")
+                    }
+                    true
+                } else {
+                    try {
+                        DemosRemoteCommands.remoteSyncConsent(syncPreferences, true)
+                        syncPreferences.unattendedCloudSync().set(true)
+                        DemosRemoteSyncJob.configure(context, true)
+                        context.toast("Unattended cloud sync enabled")
+                        true
+                    } catch (e: Exception) {
+                        context.toast(e.message ?: "Could not enable cloud sync")
+                        false
+                    }
+                }
+            },
+        )
+    }
 
     @Composable
     private fun getAdditionalPreferences(syncPreferences: SyncPreferences): List<Preference> {

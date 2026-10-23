@@ -7,14 +7,14 @@ const stats={titles:0,total_chapters:0,read_chapters:0,unread_chapters:0,has_syn
 const device_id='a'.repeat(16),manga_id='b'.repeat(24),command_id='c'.repeat(32);
 const rpc=(method,params={},identity=true)=>new Request('https://example.test/mcp',{method:'POST',headers:{'Content-Type':'application/json',...(identity?{'oai-authenticated-user-id':'owner'}:{})},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});
 
-test('discovery exposes extension-specific write tools with approval requirements',async()=>{
+test('discovery exposes owner-approved extension and unattended sync tools',async()=>{
  const result=await(await worker.fetch(rpc('tools/list'),env)).json();
  assert.deepEqual(result.result.tools.map(t=>t.name),[
   'library_stats','search_library','list_paired_devices','list_manga_chapters',
-  'list_device_extensions','install_extension','uninstall_extension','request_manga_action','get_manga_action_status'
+  'list_device_extensions','install_extension','uninstall_extension','request_manga_action','get_manga_action_status','request_device_sync','get_device_sync_status'
  ]);
  const writes=result.result.tools.filter(t=>!t.annotations.readOnlyHint);
- assert.deepEqual(writes.map(t=>t.name),['install_extension','uninstall_extension','request_manga_action']);
+ assert.deepEqual(writes.map(t=>t.name),['install_extension','uninstall_extension','request_manga_action','request_device_sync']);
  assert(writes.every(t=>t.annotations.destructiveHint));
 });
 
@@ -152,4 +152,36 @@ test('extension actions reject unsafe package names and missing approval before 
   }
  }
  assert.equal(count,0);
+});
+
+
+test('remote sync API only queues requests and returns pending status',async()=>{
+ let calls=0;
+ const result=await execute('request_device_sync',{device_id},env,async(url,o)=>{
+  calls++;
+  assert.equal(o.method,'POST');
+  assert.equal(new URL(url).pathname,'/api/assistant/remote-sync');
+  assert.deepEqual(JSON.parse(o.body),{device_id});
+  return Response.json({request_id:command_id,device_id,state:'pending',updated:11,expires:22,token:'redacted'});
+ });
+ assert.equal(calls,1);
+ assert.equal(result.isError,false);
+ assert.deepEqual(Object.keys(result.structuredContent.result),['request_id','device_id','state','updated','expires']);
+});
+
+test('remote sync status reports completed only on phone completion',async()=>{
+ const result=await execute('get_device_sync_status',{request_id:command_id},env,async(url)=>{
+  assert(new URL(url).pathname.endsWith('/api/assistant/remote-sync/'+command_id));
+  return Response.json({request_id:command_id,device_id,state:'completed',updated:20,expires:30,private_key:'excluded'});
+ });
+ assert.equal(result.isError,false);
+ assert.equal(result.structuredContent.result.state,'completed');
+ assert(!('private_key' in result.structuredContent.result));
+});
+
+test('remote sync tools reject invented device identifiers and unsupported fields',async()=>{
+ assert.throws(()=>argumentsFor('request_device_sync',{device_id:'bad'}));
+ assert.throws(()=>argumentsFor('request_device_sync',{device_id,action:'uninstall_extension'}));
+ assert.throws(()=>argumentsFor('get_device_sync_status',{request_id:'bad'}));
+ assert.throws(()=>metadata('request_device_sync',{request_id:command_id,device_id,state:'success',updated:1,expires:2}));
 });
