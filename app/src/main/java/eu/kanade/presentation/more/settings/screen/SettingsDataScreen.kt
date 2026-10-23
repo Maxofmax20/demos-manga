@@ -602,7 +602,7 @@ object SettingsDataScreen : SearchableSettings {
                     } else {
                         emptyList()
                     }
-                )
+                    )
         } else {
             basePreferences
         }
