@@ -153,10 +153,10 @@ async def require_auth(request: Request, call_next):
     if path.startswith("/api/sync/"):
         if not _token_matches(request.headers.get("X-API-Token", ""), SYNC_TOKEN):
             return JSONResponse({"detail": "Unauthorized"}, status_code=401)
-    elif path.startswith("/mcp"):
+    elif path.startswith("/mcp") or path.startswith("/api/assistant/"):
         auth = request.headers.get("authorization", "")
         if not auth.startswith("Bearer ") or not _token_matches(auth[7:], MCP_TOKEN):
-            return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+            return JSONResponse({"detail": "Unauthorized"}, status_code=401, headers={"Cache-Control": "no-store"})
     else:
         return JSONResponse({"detail": "Not found"}, status_code=404)
     return await call_next(request)
@@ -165,6 +165,23 @@ async def require_auth(request: Request, call_next):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# KMK -->
+# Cloud-hosted ChatGPT Sites can call these metadata-only endpoints using a
+# bearer credential stored in Sites protected configuration. Never expose
+# raw backup bytes, credentials or chapter pages through this API.
+@app.get("/api/assistant/stats")
+def assistant_stats(response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return library_stats()
+
+
+@app.get("/api/assistant/search")
+def assistant_search(response: Response, query: str = "", unread_only: bool = False, limit: int = 25):
+    response.headers["Cache-Control"] = "no-store"
+    return search_library(query=query, unread_only=unread_only, limit=limit)
+# KMK <--
 
 
 @app.get("/api/sync/content")
