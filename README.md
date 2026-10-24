@@ -1,3 +1,10 @@
+## Demos Manga 0.6.2 — Cinema Library direct chapter integration
+
+- Navigation-only exported CinemaLinkActivity resolves stable 24-hex Manga Cloud source and chapter fingerprints against the installed phone library and opens the private reader after verifying exact local IDs.
+- Title-only intents open the matching Manga screen. No API credentials or raw URLs are exposed and this entry point cannot edit read flags, download chapters or change account state.
+- Restricted titles and restricted installed sources cannot be opened through the new external integration.
+- Matching Cinema Library v3.3.23 enables tap-to-read from its chapter list. Update both apps to use this feature.
+
 ## Cinema Library parity API
 
 The owner-private assistant-bridge provides exact Manga chapter read flags and source revisions for Cinema Library. The phone is authoritative, with consent required for any changes. See assistant-bridge/CINEMA_PARITY.md.

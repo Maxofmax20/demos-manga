@@ -252,4 +252,5 @@
     <!-- KMK -->
     <string name="mal_publication_reference">Publication: %1$s · MyAnimeList</string>
     <!-- KMK -->
+    <!-- KMK --> <string name="cinema_exact_manga_missing">This chapter is not in the local Demos Manga library. Refresh its chapters and try again.</string> <!-- KMK -->
 </resources>
