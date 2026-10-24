@@ -253,4 +253,6 @@
     <string name="mal_publication_reference">Publication: %1$s · MyAnimeList</string>
     <!-- KMK -->
     <!-- KMK --> <string name="cinema_exact_manga_missing">This chapter is not in the local Demos Manga library. Refresh its chapters and try again.</string> <!-- KMK -->
+    <string name="demos_cinema_history_sharing_title">Share reading history with Cinema Library</string>
+    <string name="demos_cinema_history_sharing_details">Disabled by default. Send chapter names and real last-read dates with your next private Demos Manga sync. Turn off to stop sharing new reading dates.</string>
 </resources>

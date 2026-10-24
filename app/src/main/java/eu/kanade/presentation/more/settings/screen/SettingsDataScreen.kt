@@ -576,6 +576,7 @@ object SettingsDataScreen : SearchableSettings {
                             // unattended write access without new phone consent.
                             if (it != SyncManager.SyncService.SYNCYOMI.value) {
                                 syncPreferences.unattendedCategoryActions().set(false)
+                                syncPreferences.shareReadingHistoryWithCinema().set(false)
                                 DemosAutoCategoryJob.configure(context, false)
                             }
                             // KMK -->
@@ -606,6 +607,7 @@ object SettingsDataScreen : SearchableSettings {
                         listOf(
                             getCategoryScopePref(syncPreferences, "read_library"),
                             getCategoryScopePref(syncPreferences, "organize_library"),
+                            getCinemaHistoryPermission(syncPreferences),
                             getCategoryAutoApprovalPref(syncPreferences),
                             getRemoteCommandsPref(syncPreferences),
                             getRemoteSyncPref(syncPreferences),
@@ -673,6 +675,33 @@ object SettingsDataScreen : SearchableSettings {
             },
         )
     }
+
+    // KMK -->
+    /**
+     * Cinema history requires explicit device permission. This preference
+     * controls BackupHistory field 104 in future private reader syncs.
+     * It does not authorize editing, deleting or importing reading history.
+     */
+    @Composable
+    private fun getCinemaHistoryPermission(syncPreferences: SyncPreferences): Preference.PreferenceItem.SwitchPreference {
+        val context = LocalContext.current
+        return Preference.PreferenceItem.SwitchPreference(
+            preference = syncPreferences.shareReadingHistoryWithCinema(),
+            title = stringResource(KMR.strings.demos_cinema_history_sharing_title),
+            subtitle = stringResource(KMR.strings.demos_cinema_history_sharing_details),
+            onValueChanged = { enabled ->
+                if (enabled && syncPreferences.syncService().get() != SyncManager.SyncService.SYNCYOMI.value) {
+                    context.toast("Connect to the private Demos Manga bridge first")
+                    false
+                } else {
+                    syncPreferences.shareReadingHistoryWithCinema().set(enabled)
+                    true
+                }
+            },
+        )
+    }
+
+    // KMK <--
 
     @Composable
     private fun getCategoryAutoApprovalPref(syncPreferences: SyncPreferences): Preference.PreferenceItem.SwitchPreference {
