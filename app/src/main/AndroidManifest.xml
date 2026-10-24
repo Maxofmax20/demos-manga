@@ -133,6 +133,13 @@
             android:exported="false"
             android:process=":error_handler" />
 
+        <!-- Navigation-only exact manga/chapter integration with Cinema Library.
+             Uses opaque local IDs; never exports the private ReaderActivity. -->
+        <activity
+            android:name=".ui.deeplink.CinemaLinkActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Tachiyomi" />
+
         <activity
             android:name=".ui.deeplink.DeepLinkActivity"
             android:exported="true"

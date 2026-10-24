@@ -73,6 +73,22 @@ jobs:
             ./gradlew assemblePreview -Penable-updater
           fi
 
+      # KMK --> Owner manually dispatches CI to receive an unsigned release
+      # APK that can be signed with the existing protected VPS release key.
+      # This never publishes or installs an unsigned APK.
+      - name: Build unsigned owner release for signing
+        if: github.event_name == 'workflow_dispatch'
+        run: ./gradlew assembleRelease -Pdisable-code-shrink
+
+      - name: Upload owner release for protected signing
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: DemosManga-unsigned-release-APK
+          path: app/build/outputs/apk/release/*unsigned*.apk
+          if-no-files-found: error
+      # KMK <--
+
       - name: Run unit tests
         id: unit_tests
         run: ./gradlew testReleaseUnitTest
