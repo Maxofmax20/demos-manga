@@ -22,7 +22,6 @@ class SyncPreferences(
     /** Local, revocable permission for ChatGPT-reviewed category changes only. */
     fun unattendedCategoryActions() = preferenceStore.getBoolean("demos_unattended_category_changes", false)
 
-
     fun syncInterval() = preferenceStore.getInt("sync_interval", 0)
     fun syncService() = preferenceStore.getInt("sync_service", 0)
 
