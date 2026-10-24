@@ -65,6 +65,7 @@ import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.cache.PagePreviewCache
 import eu.kanade.tachiyomi.data.export.LibraryExporter
 import eu.kanade.tachiyomi.data.export.LibraryExporter.ExportOptions
+import eu.kanade.tachiyomi.data.sync.DemosAutoCategoryJob
 import eu.kanade.tachiyomi.data.sync.DemosRemoteSyncJob
 import eu.kanade.tachiyomi.data.sync.SyncDataJob
 import eu.kanade.tachiyomi.data.sync.SyncManager
@@ -570,6 +571,13 @@ object SettingsDataScreen : SearchableSettings {
                         ),
                         title = stringResource(SYMR.strings.pref_sync_service),
                         onValueChanged = {
+                            // Changing away from the paired bridge revokes unattended
+                            // category actions; re-enabling SyncYomi never restores
+                            // unattended write access without new phone consent.
+                            if (it != SyncManager.SyncService.SYNCYOMI.value) {
+                                syncPreferences.unattendedCategoryActions().set(false)
+                                DemosAutoCategoryJob.configure(context, false)
+                            }
                             // KMK -->
                             if (it != SyncManager.SyncService.NONE.value) {
                                 SyncDataJob.setupTask(context)
@@ -598,6 +606,7 @@ object SettingsDataScreen : SearchableSettings {
                         listOf(
                             getCategoryScopePref(syncPreferences, "read_library"),
                             getCategoryScopePref(syncPreferences, "organize_library"),
+                            getCategoryAutoApprovalPref(syncPreferences),
                             getRemoteCommandsPref(syncPreferences),
                             getRemoteSyncPref(syncPreferences),
                         )
@@ -638,8 +647,8 @@ object SettingsDataScreen : SearchableSettings {
     }
 
     // KMK -->
-    // All cloud commands require the owner to open this inbox and tap Confirm.
-    // Sync/WorkManager never executes these proposals in the background.
+    // Other cloud commands require the foreground inbox and explicit confirmation.
+    // Only ChatGPT-reviewed category proposals may run unattended with separate phone consent.
     @Composable
     private fun getCategoryScopePref(syncPreferences: SyncPreferences, name: String): Preference.PreferenceItem.SwitchPreference {
         val context = LocalContext.current
@@ -651,12 +660,53 @@ object SettingsDataScreen : SearchableSettings {
             subtitle = stringResource(if (isRead) KMR.strings.demos_scope_read_help else KMR.strings.demos_scope_organize_help),
             onValueChanged = { enabled ->
                 syncPreferences.remoteScope(name).set(enabled)
+                if (!enabled) {
+                    syncPreferences.unattendedCategoryActions().set(false)
+                    DemosAutoCategoryJob.configure(context, false)
+                }
                 try {
                     eu.kanade.tachiyomi.data.sync.service.DemosCategoryControl.report(syncPreferences)
                 } catch (_: Exception) {
                     context.toast(failureMessage)
                 }
                 true
+            },
+        )
+    }
+
+    @Composable
+    private fun getCategoryAutoApprovalPref(syncPreferences: SyncPreferences): Preference.PreferenceItem.SwitchPreference {
+        val context = LocalContext.current
+        return Preference.PreferenceItem.SwitchPreference(
+            preference = syncPreferences.unattendedCategoryActions(),
+            title = "Apply ChatGPT-reviewed category changes without another phone prompt",
+            subtitle = "Optional and revocable. Only category changes reviewed in ChatGPT. " +
+                "Exact preview, active scopes and database revision are checked on the phone. " +
+                "Does not authorize other commands, app installs, deletes or backup restores.",
+            onValueChanged = { enabled ->
+                if (!enabled) {
+                    syncPreferences.unattendedCategoryActions().set(false)
+                    DemosAutoCategoryJob.configure(context, false)
+                    true
+                } else {
+                    val ready = syncPreferences.remoteScope("read_library").get() &&
+                        syncPreferences.remoteScope("organize_library").get() &&
+                        syncPreferences.syncService().get() == SyncManager.SyncService.SYNCYOMI.value
+                    if (!ready) {
+                        context.toast("Enable both library/category permissions before automatic category actions")
+                        false
+                    } else {
+                        try {
+                            DemosRemoteCommands.validatePairing(syncPreferences)
+                            syncPreferences.unattendedCategoryActions().set(true)
+                            DemosAutoCategoryJob.configure(context, true)
+                            true
+                        } catch (e: Exception) {
+                            context.toast(e.message ?: "Could not enable trusted category actions")
+                            false
+                        }
+                    }
+                }
             },
         )
     }
@@ -723,7 +773,7 @@ object SettingsDataScreen : SearchableSettings {
         }
         return Preference.PreferenceItem.TextPreference(
             title = "ChatGPT cloud requests",
-            subtitle = "Check requests from your paired ChatGPT plugin. Every action requires phone approval.",
+            subtitle = "Review queued requests. Trusted category changes can use separate opt-in.",
             onClick = {
                 if (busy) return@TextPreference
                 scope.launch {

@@ -81,6 +81,7 @@ import eu.kanade.tachiyomi.data.connections.discord.DiscordRPCService
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
+import eu.kanade.tachiyomi.data.sync.DemosAutoCategoryJob
 import eu.kanade.tachiyomi.data.sync.DemosRemoteSyncJob
 import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
 import eu.kanade.tachiyomi.data.updater.AppUpdateJob
@@ -471,6 +472,10 @@ class MainActivity : BaseActivity() {
         // WorkManager persists periodic work, and foreground checks improve responsiveness.
         if (isLaunch && syncPreferences.unattendedCloudSync().get()) {
             DemosRemoteSyncJob.configure(this, true)
+        }
+
+        if (isLaunch && syncPreferences.unattendedCategoryActions().get()) {
+            DemosAutoCategoryJob.configure(this, true)
         }
 
         if (isLaunch && libraryPreferences.autoClearChapterCache().get()) {

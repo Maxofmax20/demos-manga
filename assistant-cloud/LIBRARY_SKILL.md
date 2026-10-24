@@ -37,3 +37,19 @@ Only apply_category_changes (or the set_manga_categories/bulk_set_manga_categori
 reorder_categories only previews the exact non-system category ordering; Default never moves. undo_category_changes generates a new reverse-membership preview for a completed change and rejects later conflicting edits. It does not directly undo or support reorder undo. Show it and obtain fresh approval before applying. get_category_change_history distinguishes previews from actual command states.
 
 No additional category CRUD, arbitrary settings, migration, tracking, backup restore or other future capability should be claimed unless its typed tool is actually available and tested. Read and organization scopes are implemented for this milestone; later permission scopes remain disabled.
+
+
+## Android v0.6.1 optional trusted category execution
+
+If and only if the owner has installed v0.6.1 and independently enabled
+"Apply ChatGPT-reviewed category changes without another phone prompt" in
+Sync settings, an approved category preview can be executed by Android's
+periodic worker without reopening the ChatGPT cloud requests inbox. Other
+writes still require foreground phone confirmation and Android OS security
+prompts remain in effect. This does not remove the need to show the exact
+category preview and obtain user approval in ChatGPT before queuing it.
+The worker enforces the same category-scoped consent, pending command equality,
+expiry, local revision and durable transactional journal as the manual path.
+A queued or running status never means completed. Disable the new phone toggle
+or either category scope to revoke this behavior immediately. The live plugin
+skill may need to be republished before communicating the new capability.
