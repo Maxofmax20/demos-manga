@@ -83,6 +83,9 @@ import eu.kanade.tachiyomi.data.connections.discord.DiscordRPCService
 import eu.kanade.tachiyomi.data.connections.discord.ReaderData
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.domain.sync.SyncPreferences
+import eu.kanade.tachiyomi.data.sync.SyncDataJob
+import eu.kanade.tachiyomi.data.sync.SyncManager
 import eu.kanade.tachiyomi.databinding.ReaderActivityBinding
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -165,6 +168,9 @@ class ReaderActivity : BaseActivity() {
         }
     }
 
+    // KMK -->
+    private val privateCinemaSyncPreferences = Injekt.get<SyncPreferences>()
+    // KMK <--
     private val readerPreferences = Injekt.get<ReaderPreferences>()
     private val preferences = Injekt.get<BasePreferences>()
 
@@ -531,6 +537,24 @@ class ReaderActivity : BaseActivity() {
     override fun onPause() {
         lifecycleScope.launchNonCancellable {
             viewModel.updateHistory()
+            // KMK -->
+            // After leaving the reader, schedule an incremental private
+            // sync only if the phone owner opted into cloud sync. Never
+            // upload history during incognito or with an unpaired service.
+            if (!preferences.incognitoMode().get() &&
+                privateCinemaSyncPreferences.unattendedCloudSync().get() &&
+                privateCinemaSyncPreferences.syncService().get() ==
+                    SyncManager.SyncService.SYNCYOMI.value
+            ) {
+                val prefs = getSharedPreferences("demos-cinema-live", MODE_PRIVATE)
+                val last = prefs.getLong("last_reader_sync_scheduled", 0L)
+                val now = System.currentTimeMillis()
+                if (now - last > 120_000L || now < last) {
+                    prefs.edit().putLong("last_reader_sync_scheduled", now).apply()
+                    SyncDataJob.startNow(this@ReaderActivity)
+                }
+            }
+            // KMK <--
         }
 
         // AM (DISCORD) -->
