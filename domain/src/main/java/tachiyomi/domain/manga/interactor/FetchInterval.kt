@@ -55,30 +55,16 @@ class FetchInterval(
             .take(chapterWindow)
             .toList()
 
-        val fetchDates = chapters.asSequence()
-            .sortedByDescending { it.dateFetch }
-            .map {
-                ZonedDateTime.ofInstant(Instant.ofEpochMilli(it.dateFetch), zone)
-                    .toLocalDate()
-                    .atStartOfDay()
-            }
-            .distinct()
-            .take(chapterWindow)
-            .toList()
-
-        val interval = when {
-            // Enough upload date from source
-            uploadDates.size >= 3 -> {
-                val ranges = uploadDates.windowed(2).map { x -> x[1].until(x[0], ChronoUnit.DAYS) }.sorted()
-                ranges[(ranges.size - 1) / 2].toInt()
-            }
-            // Enough fetch date from client
-            fetchDates.size >= 3 -> {
-                val ranges = fetchDates.windowed(2).map { x -> x[1].until(x[0], ChronoUnit.DAYS) }.sorted()
-                ranges[(ranges.size - 1) / 2].toInt()
-            }
-            // Default to 7 days
-            else -> 7
+        // dateFetch records when the user's app saw a chapter, not when a
+        // publisher released it. Using it as upload cadence invents dates.
+        val interval = if (uploadDates.size >= 3) {
+            val gaps = uploadDates.windowed(2)
+                .map { x -> x[1].until(x[0], ChronoUnit.DAYS) }
+                .sorted()
+            gaps[(gaps.size - 1) / 2].toInt()
+        } else {
+            // Unknown cadence: conservative source check, not a release date.
+            7
         }
 
         return interval.coerceIn(1, MAX_INTERVAL)

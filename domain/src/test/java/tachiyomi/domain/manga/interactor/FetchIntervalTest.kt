@@ -121,7 +121,8 @@ class FetchIntervalTest {
         val chaptersWithoutUploadDate = chaptersWithUploadDate.map {
             it.copy(dateUpload = 0L)
         }
-        fetchInterval.calculateInterval(chaptersWithoutUploadDate, testZoneId) shouldBe 1
+        // Fetch dates are not publisher dates. Use default source cadence.
+        fetchInterval.calculateInterval(chaptersWithoutUploadDate, testZoneId) shouldBe 7
     }
 
     @Test
@@ -130,6 +131,14 @@ class FetchIntervalTest {
             chapterWithTime(chapter, (43 * it).hours)
         }
         fetchInterval.calculateInterval(chapters, testZoneId) shouldBe 2
+    }
+
+    @Test
+    fun clientPollingCannotProvePublisherCadence() {
+        val clientFetches = (1..5).map { day ->
+            chapter.copy(dateUpload = 0L, dateFetch = testTime.plusDays(day * 2L).toEpochSecond() * 1000)
+        }
+        fetchInterval.calculateInterval(clientFetches, testZoneId) shouldBe 7
     }
 
     private fun chapterWithTime(chapter: Chapter, duration: Duration): Chapter {

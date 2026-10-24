@@ -53,7 +53,6 @@ fun UpcomingScreenContent(
     // KMK -->
     showUpdatingMangas: () -> Unit,
     hideUpdatingMangas: () -> Unit,
-    isPredictReleaseDate: Boolean,
     // KMK <--
     modifier: Modifier = Modifier,
 ) {
@@ -81,7 +80,6 @@ fun UpcomingScreenContent(
                 state.isShowingUpdatingMangas,
                 showUpdatingMangas = showUpdatingMangas,
                 hideUpdatingMangas = hideUpdatingMangas,
-                isPredictReleaseDate = isPredictReleaseDate,
                 // KMK <--
             )
         },
@@ -131,7 +129,6 @@ private fun UpcomingToolbar(
     isShowingUpdatingMangas: Boolean,
     showUpdatingMangas: () -> Unit,
     hideUpdatingMangas: () -> Unit,
-    isPredictReleaseDate: Boolean,
     // KMK <--
 ) {
     val navigator = LocalNavigator.currentOrThrow
@@ -140,14 +137,14 @@ private fun UpcomingToolbar(
     AppBar(
         title =
         if (isShowingUpdatingMangas) {
-            stringResource(KMR.strings.label_to_be_updated)
+            stringResource(KMR.strings.demos_upcoming_eligible_title)
         } else {
-            stringResource(MR.strings.label_upcoming)
+            stringResource(KMR.strings.demos_upcoming_estimated_title)
         },
         navigateUp = navigator::pop,
         actions = {
             // KMK -->
-            if (isPredictReleaseDate) {
+            run {
                 IconButton(
                     onClick = {
                         if (isShowingUpdatingMangas) {
@@ -159,7 +156,11 @@ private fun UpcomingToolbar(
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.NewReleases,
-                        contentDescription = stringResource(MR.strings.pref_library_update_smart_update),
+                        contentDescription = if (isShowingUpdatingMangas) {
+                            stringResource(KMR.strings.demos_upcoming_show_estimates)
+                        } else {
+                            stringResource(KMR.strings.demos_upcoming_show_eligible)
+                        },
                         tint = if (isShowingUpdatingMangas) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                     )
                 }
@@ -223,13 +224,30 @@ private fun UpcomingScreenSmallImpl(
         contentPadding = paddingValues,
         state = listState,
     ) {
-        item(key = "upcoming-calendar") {
-            Calendar(
+        item(key = "upcoming-explanation") {
+            Text(
+                text = if (isShowingUpdatingMangas) {
+                    stringResource(KMR.strings.demos_upcoming_eligible_hint)
+                } else {
+                    stringResource(KMR.strings.demos_upcoming_estimated_hint)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(
+                    horizontal = MaterialTheme.padding.medium,
+                    vertical = MaterialTheme.padding.small,
+                ),
+            )
+        }
+        if (!isShowingUpdatingMangas) {
+            item(key = "upcoming-calendar") {
+                Calendar(
                 selectedYearMonth = selectedYearMonth,
                 events = events,
                 setSelectedYearMonth = setSelectedYearMonth,
                 onClickDay = onClickDay,
-            )
+                )
+            }
         }
         items(
             items = items,
@@ -277,12 +295,26 @@ private fun UpcomingScreenLargeImpl(
     TwoPanelBox(
         modifier = Modifier.padding(paddingValues),
         startContent = {
-            Calendar(
-                selectedYearMonth = selectedYearMonth,
-                events = events,
-                setSelectedYearMonth = setSelectedYearMonth,
-                onClickDay = onClickDay,
-            )
+            androidx.compose.foundation.layout.Column {
+                Text(
+                    text = if (isShowingUpdatingMangas) {
+                        stringResource(KMR.strings.demos_upcoming_eligible_hint)
+                    } else {
+                        stringResource(KMR.strings.demos_upcoming_estimated_hint)
+                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(MaterialTheme.padding.medium),
+                )
+                if (!isShowingUpdatingMangas) {
+                    Calendar(
+                        selectedYearMonth = selectedYearMonth,
+                        events = events,
+                        setSelectedYearMonth = setSelectedYearMonth,
+                        onClickDay = onClickDay,
+                    )
+                }
+            }
         },
         endContent = {
             FastScrollLazyColumn(state = listState) {

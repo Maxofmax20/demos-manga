@@ -78,13 +78,12 @@ data class Manga(
         get() = customMangaInfo?.status ?: ogStatus
     // SY <--
 
+    /**
+     * Estimated next source check, not a confirmed chapter release.
+     * Invalid/empty timestamps must never render as 1 Jan 1970.
+     */
     val expectedNextUpdate: Instant?
-        get() = nextUpdate
-            /* KMK -->
-            Always predict release date even for Completed entries
-            .takeIf { status != SManga.COMPLETED.toLong() }?
-             KMK <-- */
-            .let { Instant.ofEpochMilli(it) }
+        get() = nextUpdate.takeIf { it > 0L }?.let(Instant::ofEpochMilli)
 
     val sorting: Long
         get() = chapterFlags and CHAPTER_SORTING_MASK

@@ -255,4 +255,12 @@
     <!-- KMK --> <string name="cinema_exact_manga_missing">This chapter is not in the local Demos Manga library. Refresh its chapters and try again.</string> <!-- KMK -->
     <string name="demos_cinema_history_sharing_title">Share reading history with Cinema Library</string>
     <string name="demos_cinema_history_sharing_details">Disabled by default. Send chapter names and real last-read dates with your next private Demos Manga sync. Turn off to stop sharing new reading dates.</string>
+    <string name="demos_upcoming_estimated_title">Estimated source checks</string>
+    <string name="demos_upcoming_eligible_title">Eligible for update</string>
+    <string name="demos_upcoming_estimated_hint">Estimated next source-check dates, not confirmed chapter release dates. A source may publish early, late, or lock chapters.</string>
+    <string name="demos_upcoming_eligible_hint">Titles eligible for your automatic library update rules. Overdue source checks stay here; chapter availability must still be verified at the source.</string>
+    <string name="demos_upcoming_show_estimates">Show estimated upcoming checks</string>
+    <string name="demos_upcoming_show_eligible">Show titles eligible for updates</string>
+    <string name="demos_upcoming_estimated_prefix">Estimated check: </string>
+    <string name="demos_upcoming_unknown_date">No known check date</string>
 </resources>

@@ -3,6 +3,7 @@ package mihon.feature.upcoming.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -19,6 +20,10 @@ import eu.kanade.presentation.manga.components.MangaCover
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.i18n.kmk.KMR
+import tachiyomi.presentation.core.i18n.stringResource
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 private val UpcomingItemHeight = 96.dp
 
@@ -50,13 +55,25 @@ fun UpcomingItem(
             bgColor = bgColor,
             tint = onBgColor,
         )
-        Text(
-            modifier = Modifier.weight(1f),
-            text = upcoming.title,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = upcoming.title,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = upcoming.expectedNextUpdate?.let {
+                    stringResource(KMR.strings.demos_upcoming_estimated_prefix) +
+                        DateTimeFormatter.ofPattern("MMM d, yyyy").format(
+                            it.atZone(ZoneId.systemDefault()),
+                        )
+                } ?: stringResource(KMR.strings.demos_upcoming_unknown_date),
+                maxLines = 1,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
     }
 }
