@@ -1,3 +1,7 @@
+## Cinema Library parity API
+
+The owner-private assistant-bridge provides exact Manga chapter read flags and source revisions for Cinema Library. The phone is authoritative, with consent required for any changes. See assistant-bridge/CINEMA_PARITY.md.
+
 <div align="center">
 
 <a href="https://komikku-app.github.io">

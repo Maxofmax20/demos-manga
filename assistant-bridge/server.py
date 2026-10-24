@@ -298,6 +298,69 @@ def assistant_library(response: Response, offset: int = 0, limit: int = 50,
     }
 
 
+@app.get("/api/assistant/library-revision")
+def assistant_library_revision(response: Response):
+    """One authoritative progress revision for Cinema's cached manga mirror.
+
+    Changes only after a real owner-phone SyncYomi upload; never claim a
+    queued command altered chapter flags. Metadata only, no backup content.
+    """
+    response.headers["Cache-Control"] = "private, no-store"
+    if not BACKUP_PATH.is_file():
+        return {"has_sync_data": False, "revision": None,
+                "source_updated_at": None, "titles": 0, "chapters": 0, "read": 0}
+    raw = BACKUP_PATH.read_bytes()
+    books = extract_metadata(raw)
+    return {"has_sync_data": True, "revision": hashlib.sha256(raw).hexdigest(),
+            "source_updated_at": BACKUP_PATH.stat().st_mtime,
+            "titles": len(books), "chapters": sum(book["chapters"] for book in books),
+            "read": sum(book["read"] for book in books)}
+
+
+@app.get("/api/assistant/library-record")
+def assistant_library_record(manga_id: str, response: Response):
+    """Exact per-source manga identity, chapter flags and consented categories.
+
+    A title-match cannot substitute for exact stable identity: different
+    scans/translations can share a title but have different chapters.
+    """
+    if not command_queue.HEX_ID.fullmatch(manga_id):
+        raise HTTPException(400, "Invalid manga identifier")
+    response.headers["Cache-Control"] = "private, no-store"
+    if not BACKUP_PATH.is_file():
+        raise HTTPException(503, "Reader backup is not yet synchronized")
+    raw = BACKUP_PATH.read_bytes()
+    entry = next((item for item in extract_metadata(raw) if item.get("id") == manga_id), None)
+    if entry is None:
+        raise HTTPException(404, "Manga not found in permitted reader snapshot")
+    chapters = chapters_from_backup(raw, manga_id, _fields, _utf8, BLOCKED_GENRES)
+    if len(chapters) != entry["chapters"] or sum(bool(c["read"]) for c in chapters) != entry["read"]:
+        raise HTTPException(409, "Reader chapter snapshot is incomplete; sync the phone again")
+    category_ids = None
+    category_revision = None
+    category_updated_at = None
+    try:
+        devices = [d["id"] for d in _device_keys() if d["expires"] > time.time()]
+        if len(devices) == 1:
+            category_snapshot = categories.snapshot(COMMAND_DB, devices[0])
+            matches = categories.page(COMMAND_DB, devices[0], manga_id=manga_id)["items"]
+            if len(matches) == 1:
+                category_ids = matches[0]["category_ids"]
+                category_revision = category_snapshot["revision"]
+                category_updated_at = category_snapshot["updated"]
+    except (ValueError, PermissionError, OSError):
+        # Missing opt-in category permissions never affect chapter truth.
+        pass
+    return {"id": manga_id, "title": entry["title"],
+            "chapters": chapters, "total_chapters": entry["chapters"],
+            "read_chapters": entry["read"], "unread_chapters": entry["unread"],
+            "revision": hashlib.sha256(raw).hexdigest(),
+            "source_updated_at": BACKUP_PATH.stat().st_mtime,
+            "category_ids": category_ids, "category_revision": category_revision,
+            "category_updated_at": category_updated_at,
+            "authoritative": True}
+
+
 @app.get("/api/assistant/chapters")
 def assistant_chapters(manga_id: str, response: Response, offset: int = 0, limit: int = 100):
     response.headers["Cache-Control"] = "no-store"
