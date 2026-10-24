@@ -242,10 +242,10 @@ private fun UpcomingScreenSmallImpl(
         if (!isShowingUpdatingMangas) {
             item(key = "upcoming-calendar") {
                 Calendar(
-                selectedYearMonth = selectedYearMonth,
-                events = events,
-                setSelectedYearMonth = setSelectedYearMonth,
-                onClickDay = onClickDay,
+                    selectedYearMonth = selectedYearMonth,
+                    events = events,
+                    setSelectedYearMonth = setSelectedYearMonth,
+                    onClickDay = onClickDay,
                 )
             }
         }
