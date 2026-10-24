@@ -19,6 +19,7 @@ import extension_inventory
 import remote_sync
 import categories
 from chapters_metadata import chapters_from_backup
+from reading_history import read_activity,save_observed_events
 
 DATA_DIR = Path(os.getenv("MANGA_DATA_DIR", "/var/lib/demos-manga"))
 SYNC_TOKEN = os.getenv("MANGA_SYNC_TOKEN", "")
@@ -26,6 +27,7 @@ MCP_TOKEN = os.getenv("MANGA_MCP_TOKEN", "")
 MAX_BACKUP_BYTES = 16 * 1024 * 1024
 BLOCKED_GENRES = frozenset({"adult", "mature", "explicit", "erotica", "smut", "nsfw", "hentai", "ecchi"})
 BACKUP_PATH = DATA_DIR / "sync.protobuf"
+READ_ACTIVITY_PATH = DATA_DIR / "reading-activity.json"
 COMMAND_DB = DATA_DIR / "remote-commands.sqlite3"
 
 
@@ -265,6 +267,25 @@ async def unpair_devices(response: Response):
 def assistant_stats(response: Response):
     response.headers["Cache-Control"] = "no-store"
     return library_stats()
+
+
+@app.get("/api/assistant/reading-history")
+def assistant_reading_history(response: Response, limit: int = 60):
+    """Private reader timeline: actual dated reads or observed sync changes.
+
+    No chapter text/images, account secrets or full device backup returned.
+    """
+    if not 1 <= limit <= 100:
+        raise HTTPException(400, "Invalid reading-history limit")
+    response.headers["Cache-Control"] = "no-store"
+    if not BACKUP_PATH.exists():
+        return {"items": [], "datedCount": 0, "observedCount": 0,
+                "hasHistoricalDates": False, "source": "Demos Manga private reader sync"}
+    try:
+        return read_activity(BACKUP_PATH.read_bytes(),READ_ACTIVITY_PATH,
+                             _fields,_utf8,BLOCKED_GENRES,limit)
+    except (OSError,ValueError):
+        raise HTTPException(503,"Reader history snapshot unavailable")
 
 
 @app.get("/api/assistant/search")
@@ -581,6 +602,7 @@ async def put_sync_content(request: Request, if_match: str | None = Header(None)
         existing_etag = '"' + hashlib.sha256(BACKUP_PATH.read_bytes()).hexdigest() + '"'
         if if_match != existing_etag:
             raise HTTPException(412, "Backup changed on server")
+    previous_backup = BACKUP_PATH.read_bytes() if BACKUP_PATH.exists() else b""
     DATA_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=DATA_DIR, prefix=".sync-")
     try:
@@ -590,6 +612,12 @@ async def put_sync_content(request: Request, if_match: str | None = Header(None)
             os.fsync(f.fileno())
         os.chmod(tmp, 0o600)
         os.replace(tmp, BACKUP_PATH)
+        try:
+            save_observed_events(READ_ACTIVITY_PATH, previous_backup,raw,
+                                 _fields,_utf8,BLOCKED_GENRES)
+        except (ValueError,OSError):
+            # Never make existing SyncYomi backup depend on activity capture.
+            pass
     finally:
         if os.path.exists(tmp):
             os.unlink(tmp)

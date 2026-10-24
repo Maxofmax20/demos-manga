@@ -54,3 +54,16 @@ phone approval remains available.
 
 This is a source implementation until the signed Android v0.6.1 release is
 published and installed. Do not confuse a queued command with a completed one.
+
+## Private reader History integration (24 October 2026)
+
+- New owner-authenticated read-only GET /api/assistant/reading-history.
+- Parses actual BackupHistory protobuf field 104 if supplied by Android,
+  honoring existing restricted-genre filters, exact chapter IDs and
+  metadata-only response rules. No raw backup or credentials exposed.
+- Separately observes 0-to-1 read-flag changes when new SyncYomi backups
+  arrive; observed times explicitly labeled observed_sync, not read dates.
+- Private activity log 0600, bounded to 300 records. Does NOT guess historic
+  reading dates from the existing 37k chapter read flags.
+- Current backup contains 0 dated history records. Future opt-in reader
+  updates can include local phone history for older chapter read dates.
