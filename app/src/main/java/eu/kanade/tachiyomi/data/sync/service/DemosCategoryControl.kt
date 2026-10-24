@@ -101,7 +101,9 @@ object DemosCategoryControl {
         }
     }
 
-    /** Called ONLY by the existing foreground phone approval dialog. */
+    /** Called from phone approval or explicit opt-in category-only WorkManager.
+     * Both paths enforce the same exact preview, expiry, scope and revision checks.
+     */
     suspend fun execute(context: Context, command: DemosRemoteCommands.Command): Boolean {
         val prefs = Injekt.get<SyncPreferences>()
         require(prefs.remoteScope("read_library").get() && prefs.remoteScope("organize_library").get()) {

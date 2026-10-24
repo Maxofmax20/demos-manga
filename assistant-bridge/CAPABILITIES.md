@@ -36,3 +36,21 @@ The two set-category tools require a reviewed preview_id and confirmed=true; the
 5. Interpret the owner's existing Arabic categories. Ask about ambiguous classifications; never create categories or change progress to improve organization.
 6. Present every proposed title, original memberships, proposed memberships and the exact preview ID. Obtain approval.
 7. Queue that preview, approve on the phone, then verify completed status AND the refreshed actual memberships. Queued or mocked results do not count as successful reorganization.
+
+
+## Android v0.6.1 — revocable second-phone-confirmation reduction
+
+An optional new Android setting enables local WorkManager to execute only
+`category_changes` commands after the owner has approved the exact category
+preview in ChatGPT. This setting defaults OFF and requires read_library and
+organize_library scopes, a paired device and SyncYomi. Turning off either scope,
+switching away from SyncYomi or turning off the setting immediately disables
+future unattended execution on the phone. The existing atomic database revision,
+expiry, command equality, durable journal and local result reporting remain.
+Android polling is approximately every 15 minutes and may be delayed. No other
+commands (extension installs, downloads, read flags, deletes, backup restore,
+settings, arbitrary code) become automatically executable. Existing legacy
+phone approval remains available.
+
+This is a source implementation until the signed Android v0.6.1 release is
+published and installed. Do not confuse a queued command with a completed one.
