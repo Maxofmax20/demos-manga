@@ -47,8 +47,11 @@ android {
             isPseudoLocalesEnabled = true
         }
         val release by getting {
-            isMinifyEnabled = Config.enableCodeShrink
-            isShrinkResources = Config.enableCodeShrink
+            // Android R8 currently fails on Kotlin 2.4.20 Compose
+            // compiler-only references on the ARM64 VPS. Do not strip
+            // runtime classes until the toolchain is fixed and tested.
+            isMinifyEnabled = false
+            isShrinkResources = false
 
             proguardFiles("proguard-android-optimize.txt", "proguard-rules.pro")
 
