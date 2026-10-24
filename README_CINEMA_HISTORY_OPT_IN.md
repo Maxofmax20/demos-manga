@@ -41,3 +41,10 @@ SQLite file, unrestricted write access, or an always-on background socket.
 
 The official Demos Manga release must be built with -Penable-updater;
 the existing GitHub in-app update behavior is part of release validation.
+
+## Paginated exact history
+
+The private reading-history API supports limit and offset, exposing
+bounded pages of actual reader history instead of truncating everything
+at 300 dated chapters. It returns original timestamps, exact chapter
+identities and pagination metadata without chapter content or credentials.

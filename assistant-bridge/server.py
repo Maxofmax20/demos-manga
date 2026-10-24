@@ -270,20 +270,22 @@ def assistant_stats(response: Response):
 
 
 @app.get("/api/assistant/reading-history")
-def assistant_reading_history(response: Response, limit: int = 60):
+def assistant_reading_history(response: Response, limit: int = 60, offset: int = 0):
     """Private reader timeline: actual dated reads or observed sync changes.
 
     No chapter text/images, account secrets or full device backup returned.
     """
-    if not 1 <= limit <= 100:
-        raise HTTPException(400, "Invalid reading-history limit")
+    if not 1 <= limit <= 100 or not 0 <= offset <= 20000:
+        raise HTTPException(400, "Invalid reading-history page")
     response.headers["Cache-Control"] = "no-store"
     if not BACKUP_PATH.exists():
         return {"items": [], "datedCount": 0, "observedCount": 0,
-                "hasHistoricalDates": False, "source": "Demos Manga private reader sync"}
+                "total": 0, "offset": offset, "hasMore": False,
+                "nextOffset": None, "hasHistoricalDates": False,
+                "source": "Demos Manga private reader sync"}
     try:
         return read_activity(BACKUP_PATH.read_bytes(),READ_ACTIVITY_PATH,
-                             _fields,_utf8,BLOCKED_GENRES,limit)
+                             _fields,_utf8,BLOCKED_GENRES,limit,offset)
     except (OSError,ValueError):
         raise HTTPException(503,"Reader history snapshot unavailable")
 
