@@ -24,6 +24,11 @@ jobs:
   build:
     name: Build app
     runs-on: 'ubuntu-24.04'
+    # This public fork can validate and build without owner-private Google keys.
+    # Telemetry is optional and stays disabled unless BOTH inputs are provided.
+    env:
+      MANGA_TELEMETRY_CONFIGURED: ${{ secrets.GOOGLE_SERVICES_JSON != '' && secrets.GOOGLE_CLIENT_SECRETS_JSON != '' }}
+      MANGA_SIGNING_CONFIGURED: ${{ secrets.SIGNING_KEY != '' && secrets.ALIAS != '' && secrets.KEY_STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' }}
 
     steps:
       - name: Clone repo
@@ -38,6 +43,7 @@ jobs:
           distribution: temurin
 
       - name: Write google-services.json
+        if: env.MANGA_TELEMETRY_CONFIGURED == 'true'
         uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
         with:
           path: app/google-services.json
@@ -45,6 +51,7 @@ jobs:
           write-mode: overwrite
 
       - name: Write client_secrets.json
+        if: env.MANGA_TELEMETRY_CONFIGURED == 'true'
         uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
         with:
           path: app/src/main/assets/client_secrets.json
@@ -58,7 +65,13 @@ jobs:
         run: ./gradlew spotlessCheck
 
       - name: Build app
-        run: ./gradlew assemblePreview -Pinclude-telemetry -Penable-updater
+        run: |
+          if [ "$MANGA_TELEMETRY_CONFIGURED" = "true" ]; then
+            ./gradlew assemblePreview -Pinclude-telemetry -Penable-updater
+          else
+            echo "Building without optional Firebase/Google telemetry configuration"
+            ./gradlew assemblePreview -Penable-updater
+          fi
 
       - name: Run unit tests
         id: unit_tests
@@ -75,6 +88,7 @@ jobs:
           path: app/build/reports/tests/testReleaseUnitTest
 
       - name: Sign APK
+        if: env.MANGA_SIGNING_CONFIGURED == 'true'
         uses: r0adkll/sign-android-release@f30bdd30588842ac76044ecdbd4b6d0e3e813478
         with:
           releaseDirectory: app/build/outputs/apk/preview
@@ -86,6 +100,7 @@ jobs:
           BUILD_TOOLS_VERSION: '35.0.1'
 
       - name: Rename apk
+        if: env.MANGA_SIGNING_CONFIGURED == 'true'
         id: current_commit
         run: |
           set -e
@@ -98,10 +113,20 @@ jobs:
           mv app/build/outputs/apk/preview/app-universal-preview-signed.apk Komikku-$version_tag-r$commit_count.apk
 
       - name: Upload APK
+        if: env.MANGA_SIGNING_CONFIGURED == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Komikku-${{ steps.current_commit.outputs.VERSION_TAG }}-r${{ steps.current_commit.outputs.COMMIT_COUNT }}.apk
           path: ./*.apk
+
+      # Unsigned artifacts are for CI/QA only, never an installable release.
+      - name: Upload unsigned preview for verification
+        if: env.MANGA_SIGNING_CONFIGURED != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: UNSIGNED-NOT-FOR-INSTALL-${{ github.sha }}
+          path: app/build/outputs/apk/preview/*unsigned*.apk
+          if-no-files-found: ignore
 
       - name: Upload mapping
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
