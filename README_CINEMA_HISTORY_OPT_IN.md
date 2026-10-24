@@ -26,3 +26,18 @@ Reader-side opt-in is NOT enabled remotely: the owner must install the
 new signed Demos Manga app, turn on the setting and request a sync.
 On-device E2E verification requires the owner's phone; no phone is
 connected to the build VPS.
+
+
+## Linked database refresh
+
+With the existing separate unattended-sync consent switched on, a
+WorkManager job syncs your private reader to the same server that Cinema
+reads, approximately every 15 minutes (Android can delay). Leaving the
+reader schedules a throttled immediate sync after storing a read event,
+unless incognito is enabled. Cinema checks only the authenticated cloud
+revision every 75 seconds while visible. This is an authenticated,
+eventually consistent shared source of truth, not an Android shared local
+SQLite file, unrestricted write access, or an always-on background socket.
+
+The official Demos Manga release must be built with -Penable-updater;
+the existing GitHub in-app update behavior is part of release validation.

@@ -314,3 +314,11 @@
 -dontwarn org.ietf.jgss.Oid
 -dontwarn com.google.re2j.Matcher
 -dontwarn com.google.re2j.Pattern
+
+# KMK -->
+# AndroidX Window dynamically checks for optional OEM-provided fold/window
+# extensions. These classes exist only on supporting devices and must not be
+# bundled into the app to satisfy R8 static checks.
+-dontwarn androidx.window.extensions.**
+-dontwarn androidx.window.sidecar.**
+# KMK <--
