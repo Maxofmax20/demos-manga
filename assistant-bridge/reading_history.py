@@ -13,6 +13,7 @@ from pathlib import Path
 
 EARLIEST=946684800000
 MAX_ITEMS=300
+MAX_HISTORY_EVENTS=20000
 
 def _books(raw,fields,decode,blocked):
     for n,w,payload in fields(raw):
@@ -42,7 +43,7 @@ def _chapter(blob,fields,decode):
 def _id(mid,url):
     return hashlib.sha256(f"{mid}|{url}".encode()).hexdigest()[:24]
 
-def dated_history(raw,fields,decode,blocked,now_ms=None):
+def dated_history(raw,fields,decode,blocked,now_ms=None,max_items=MAX_ITEMS):
     if now_ms is None:now_ms=int(time.time()*1000)
     result=[]
     for mid,title,chapters,histories in _books(raw,fields,decode,blocked):
@@ -59,7 +60,7 @@ def dated_history(raw,fields,decode,blocked,now_ms=None):
                 continue
             result.append(dict(mangaId=mid,chapterId=_id(mid,url),title=title,
                                chapter=names[url],timestamp=last,timeKind="actual"))
-    return sorted(result,key=lambda x:x["timestamp"],reverse=True)[:MAX_ITEMS]
+    return sorted(result,key=lambda x:x["timestamp"],reverse=True)[:max_items]
 
 def _flags(raw,fields,decode,blocked):
     values={}
@@ -107,9 +108,10 @@ def save_observed_events(file:Path,previous:bytes,current:bytes,fields,decode,bl
         if os.path.exists(tmp):os.unlink(tmp)
     return len(delta)
 
-def read_activity(raw,file:Path,fields,decode,blocked,limit=60):
-    assert 1<=limit<=100
-    actual=dated_history(raw,fields,decode,blocked)
+def read_activity(raw,file:Path,fields,decode,blocked,limit=60,offset=0):
+    assert 1<=limit<=100 and 0<=offset<=MAX_HISTORY_EVENTS
+    actual=dated_history(raw,fields,decode,blocked,
+                         max_items=MAX_HISTORY_EVENTS)
     try:observed=json.loads(file.read_text()) if file.exists() else []
     except(OSError,ValueError):observed=[]
     if not isinstance(observed,list):observed=[]
@@ -119,5 +121,10 @@ def read_activity(raw,file:Path,fields,decode,blocked,limit=60):
     ids={(x["mangaId"],x["chapterId"]) for x in actual}
     rows=actual+[x for x in verified if (x["mangaId"],x["chapterId"]) not in ids]
     rows.sort(key=lambda x:x["timestamp"],reverse=True)
-    return dict(items=rows[:limit],datedCount=len(actual),observedCount=len(verified),
+    total=len(rows)
+    next_offset=offset+limit if offset+limit<total else None
+    return dict(items=rows[offset:offset+limit],
+       datedCount=len(actual),observedCount=len(verified),
+       total=total,offset=offset,hasMore=next_offset is not None,
+       nextOffset=next_offset,
        hasHistoricalDates=bool(actual),source="Demos Manga private reader sync")

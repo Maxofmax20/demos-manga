@@ -47,6 +47,26 @@ class PrivateHistoryTests(unittest.TestCase):
                             BLOCKED_GENRES)
             self.assertEqual(x["items"],[])
             self.assertFalse(x["hasHistoricalDates"])
+    def test_history_is_paginated_without_losing_real_dates(self):
+        from reading_history import read_activity
+        with tempfile.TemporaryDirectory() as t:
+            raw=m(1,n(1,423)+m(2,b"/series")+m(3,b"Sample")+
+                b"".join(m(16,m(1,f"/c{i}".encode())+m(2,f"Ch {i}".encode())+n(4,1))
+                  for i in range(7))+
+                b"".join(m(104,m(1,f"/c{i}".encode())+n(2,1723000000000+i))
+                  for i in range(7)))
+            pages=[read_activity(raw,Path(t)/"events.json",_fields,_utf8,
+                    BLOCKED_GENRES,limit=3,offset=offset) for offset in (0,3,6)]
+            self.assertEqual(pages[0]["total"],7)
+            self.assertTrue(pages[0]["hasMore"])
+            self.assertEqual(pages[0]["nextOffset"],3)
+            self.assertEqual(len(pages[1]["items"]),3)
+            self.assertEqual(len(pages[2]["items"]),1)
+            self.assertFalse(pages[2]["hasMore"])
+            self.assertIsNone(pages[2]["nextOffset"])
+            ids=[x["chapterId"] for page in pages for x in page["items"]]
+            self.assertEqual(len(set(ids)),7)
+
     def test_future_date_rejected(self):
         self.assertEqual(dated_history(backup(True,9999999999999999),_fields,
                          _utf8,BLOCKED_GENRES),[])
