@@ -38,3 +38,6 @@ unless incognito is enabled. Cinema checks only the authenticated cloud
 revision every 75 seconds while visible. This is an authenticated,
 eventually consistent shared source of truth, not an Android shared local
 SQLite file, unrestricted write access, or an always-on background socket.
+
+The official Demos Manga release must be built with -Penable-updater;
+the existing GitHub in-app update behavior is part of release validation.

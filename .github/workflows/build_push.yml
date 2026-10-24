@@ -78,7 +78,7 @@ jobs:
       # This never publishes or installs an unsigned APK.
       - name: Build unsigned owner release for signing
         if: github.event_name == 'workflow_dispatch'
-        run: ./gradlew assembleRelease -Pdisable-code-shrink
+        run: ./gradlew assembleRelease -Pdisable-code-shrink -Penable-updater
 
       - name: Upload owner release for protected signing
         if: github.event_name == 'workflow_dispatch'
