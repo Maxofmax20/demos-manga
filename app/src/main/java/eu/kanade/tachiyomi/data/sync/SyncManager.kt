@@ -95,7 +95,16 @@ class SyncManager(
             tracking = !isDemosBridgeSync && syncOptions.tracking,
             // KMK <--
             // KMK -->
-            history = !isDemosBridgeSync && syncOptions.history,
+            // KMK -->
+            // Existing non-Cinema sync behavior unchanged. Owner can opt in
+            // to share exact dated chapter history with the paired Cinema
+            // bridge; by default only read flags are included.
+            history = if (isDemosBridgeSync) {
+                syncPreferences.shareReadingHistoryWithCinema().get()
+            } else {
+                syncOptions.history
+            },
+            // KMK <--
             // KMK <--
             // KMK -->
             extensionStores = !isDemosBridgeSync && syncOptions.extensionStores,

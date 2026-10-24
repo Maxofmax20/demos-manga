@@ -17,6 +17,13 @@ class SyncPreferences(
     fun lastSyncEtag() = preferenceStore.getString("sync_etag", "")
 
     // Opt-in to unattended cloud sync requests (never grants extension or command approval).
+    // KMK -->
+    /** Owner-only and disabled by default. History is personal activity data;
+     * sync it to Cinema only with explicit in-app consent. */
+    fun shareReadingHistoryWithCinema() =
+        preferenceStore.getBoolean("demos_share_reading_history_cinema", false)
+    // KMK <--
+
     fun unattendedCloudSync() = preferenceStore.getBoolean("demos_unattended_cloud_sync", false)
 
     /** Local, revocable permission for ChatGPT-reviewed category changes only. */
