@@ -65,6 +65,7 @@ import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.connections.service.ConnectionsPreferences
 import eu.kanade.domain.manga.model.readingMode
+import eu.kanade.domain.sync.SyncPreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.reader.ChapterListDialog
 import eu.kanade.presentation.reader.DisplayRefreshHost
@@ -83,7 +84,6 @@ import eu.kanade.tachiyomi.data.connections.discord.DiscordRPCService
 import eu.kanade.tachiyomi.data.connections.discord.ReaderData
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
-import eu.kanade.domain.sync.SyncPreferences
 import eu.kanade.tachiyomi.data.sync.SyncDataJob
 import eu.kanade.tachiyomi.data.sync.SyncManager
 import eu.kanade.tachiyomi.databinding.ReaderActivityBinding
@@ -544,7 +544,7 @@ class ReaderActivity : BaseActivity() {
             if (!preferences.incognitoMode().get() &&
                 privateCinemaSyncPreferences.unattendedCloudSync().get() &&
                 privateCinemaSyncPreferences.syncService().get() ==
-                    SyncManager.SyncService.SYNCYOMI.value
+                SyncManager.SyncService.SYNCYOMI.value
             ) {
                 val prefs = getSharedPreferences("demos-cinema-live", MODE_PRIVATE)
                 val last = prefs.getLong("last_reader_sync_scheduled", 0L)
