@@ -51,7 +51,13 @@ class DemosRemoteSyncJob(private val context: Context, params: WorkerParameters)
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
             return Result.retry()
-        } ?: return Result.success()
+        }
+        // KMK -->
+        // A user-approved connection uploads normal Manga changes even
+        // when Cinema has not explicitly queued a sync request. WorkManager
+        // limits background checks to roughly 15 minutes when Android permits.
+        // Only the paired SyncYomi bridge and opt-in scope are eligible.
+        // KMK <--
 
         syncStatus.start()
         var completed = false
@@ -61,17 +67,19 @@ class DemosRemoteSyncJob(private val context: Context, params: WorkerParameters)
                 return Result.success()
             }
             SyncManager(context).syncData()
-            DemosRemoteCommands.reportCloudInventory(preferences)
+            if (request != null) DemosRemoteCommands.reportCloudInventory(preferences)
             completed = true
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
         } finally {
             syncStatus.stop()
             // The result is the status of both the standard sync and inventory upload.
-            runCatching { DemosRemoteCommands.reportRemoteSync(preferences, request.request_id, completed) }
-                .onFailure { logcat(LogPriority.ERROR, it) }
+            if (request != null) {
+                runCatching { DemosRemoteCommands.reportRemoteSync(preferences, request.request_id, completed) }
+                    .onFailure { logcat(LogPriority.ERROR, it) }
+            }
         }
-        return Result.success()
+        return if (completed || request != null) Result.success() else Result.retry()
     }
 
     override suspend fun getForegroundInfo(): ForegroundInfo =

@@ -329,7 +329,14 @@ dependencies {
 
     // RatingBar (SY)
     implementation(sylibs.ratingbar)
-    implementation(sylibs.composeRatingbar)
+    // KMK -->
+    // Old compose-ratingbar transitively drags androidx.compose.compiler:compiler
+    // 1.5.3 into Android releaseRuntimeClasspath; that build-time plugin
+    // references missing Kotlin compiler internals and breaks R8/D8.
+    implementation(sylibs.composeRatingbar) {
+        exclude(group = "androidx.compose.compiler", module = "compiler")
+    }
+    // KMK <--
 
     // Google drive
     implementation(sylibs.google.api.services.drive)
