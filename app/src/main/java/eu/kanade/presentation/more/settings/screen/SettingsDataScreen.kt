@@ -608,6 +608,7 @@ object SettingsDataScreen : SearchableSettings {
                             getCategoryScopePref(syncPreferences, "read_library"),
                             getCategoryScopePref(syncPreferences, "organize_library"),
                             getCinemaHistoryPermission(syncPreferences),
+                            getCinemaSyncHealthPref(syncPreferences),
                             getCategoryAutoApprovalPref(syncPreferences),
                             getRemoteCommandsPref(syncPreferences),
                             getRemoteSyncPref(syncPreferences),
@@ -695,12 +696,71 @@ object SettingsDataScreen : SearchableSettings {
                     false
                 } else {
                     syncPreferences.shareReadingHistoryWithCinema().set(enabled)
+                    // KMK -->
+                    // A private backup is queued when the owner changes this
+                    // permission. This avoids a misleading "Synced" label
+                    // while the server still has the old backup scope.
+                    SyncDataJob.startNow(context)
+                    context.toast(
+                        if (enabled) {
+                            "History sharing enabled · upload requested"
+                        } else {
+                            "History sharing disabled · upload requested"
+                        },
+                    )
+                    // KMK <--
                     true
                 }
             },
         )
     }
 
+    // KMK -->
+    @Composable
+    private fun getCinemaSyncHealthPref(syncPreferences: SyncPreferences): Preference.PreferenceItem.TextPreference {
+        val context = LocalContext.current
+        var open by remember { mutableStateOf(false) }
+        if (open) {
+            val last = context.getSharedPreferences("demos-cinema-sync-health", android.content.Context.MODE_PRIVATE)
+                .getLong("last_successful_upload_ms", 0L)
+            val summary = if (last > 0L) {
+                "Last confirmed upload from this phone: " +
+                    java.text.DateFormat.getDateTimeInstance().format(java.util.Date(last))
+            } else {
+                "No completed private background upload recorded on this phone yet."
+            }
+            AlertDialog(
+                onDismissRequest = { open = false },
+                title = { Text("Cinema Library sync health") },
+                text = {
+                    Text(
+                        summary + "\n\n" +
+                            "Automatic uploads: " +
+                            (if (syncPreferences.unattendedCloudSync().get()) "Enabled" else "Disabled") +
+                            "\nDated chapter history: " +
+                            (if (syncPreferences.shareReadingHistoryWithCinema().get()) "Allowed" else "Not shared") +
+                            "\n\nA completed phone upload is not proof that Cinema has refreshed yet. " +
+                            "Cinema checks the shared cloud revision while open.",
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        SyncDataJob.startNow(context)
+                        open = false
+                        context.toast("Private sync requested")
+                    }) { Text("Sync now") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { open = false }) { Text("Close") }
+                },
+            )
+        }
+        return Preference.PreferenceItem.TextPreference(
+            title = "Cinema Library sync health",
+            subtitle = "Last phone upload, automatic sync consent and dated-history sharing",
+            onClick = { open = true },
+        )
+    }
     // KMK <--
 
     @Composable

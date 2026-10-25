@@ -72,6 +72,14 @@ class DemosRemoteSyncJob(private val context: Context, params: WorkerParameters)
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
         } finally {
+            // KMK -->
+            // Local-only diagnostic timestamp. It has no chapter content,
+            // account tokens or raw backup data.
+            if (completed) {
+                context.getSharedPreferences("demos-cinema-sync-health", Context.MODE_PRIVATE)
+                    .edit().putLong("last_successful_upload_ms", System.currentTimeMillis()).apply()
+            }
+            // KMK <--
             syncStatus.stop()
             // The result is the status of both the standard sync and inventory upload.
             if (request != null) {

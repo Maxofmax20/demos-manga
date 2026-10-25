@@ -48,3 +48,17 @@ The private reading-history API supports limit and offset, exposing
 bounded pages of actual reader history instead of truncating everything
 at 300 dated chapters. It returns original timestamps, exact chapter
 identities and pagination metadata without chapter content or credentials.
+
+
+## Demos Manga 0.6.5 — first-class Cinema connection status
+
+Settings > Sync > Cinema Library sync health displays the last locally
+confirmed private upload, automatic upload permission and optional dated
+chapter history sharing. An explicit Sync now action can enqueue the phone
+upload. Changing history sharing now also requests a private upload,
+so Cinema can detect the permission change without a second manual tap.
+
+This is status from the phone, not a falsely declared cross-app
+synchronization guarantee. Cinema still verifies its own cloud revision;
+Android networking and battery management may postpone delivery.
+No credentials, read flags or chapter data are written into diagnostics.
