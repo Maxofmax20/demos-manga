@@ -67,6 +67,44 @@ class PrivateHistoryTests(unittest.TestCase):
             ids=[x["chapterId"] for page in pages for x in page["items"]]
             self.assertEqual(len(set(ids)),7)
 
+    def test_actual_date_supersedes_sync_detection_in_counts(self):
+        import json
+        timestamp=1723000000000
+        raw=backup(True,timestamp)
+        actual=dated_history(raw,_fields,_utf8,BLOCKED_GENRES,
+                             now_ms=timestamp+10000)
+        self.assertEqual(len(actual),1)
+        observed={**actual[0], "timeKind":"observed_sync",
+                  "timestamp":timestamp+999}
+        with tempfile.TemporaryDirectory() as directory:
+            file=Path(directory)/"observed.json"
+            file.write_text(json.dumps([observed,observed]))
+            page=read_activity(raw,file,_fields,_utf8,BLOCKED_GENRES,
+                               limit=40,offset=0)
+            self.assertEqual(page["total"],1)
+            self.assertEqual(page["datedCount"],1)
+            self.assertEqual(page["observedCount"],0)
+            self.assertEqual(len(page["items"]),1)
+            self.assertEqual(page["items"][0]["timeKind"],"actual")
+
+    def test_only_unique_sync_observations_count(self):
+        import json
+        raw=backup(True)
+        rows=new_read_flags(backup(False),raw,_fields,_utf8,BLOCKED_GENRES,
+                            observed_ms=1723000000000)
+        self.assertEqual(len(rows),1)
+        later={**rows[0],"timestamp":1723000005000}
+        with tempfile.TemporaryDirectory() as directory:
+            file=Path(directory)/"observed.json"
+            file.write_text(json.dumps(rows+[later]))
+            page=read_activity(raw,file,_fields,_utf8,BLOCKED_GENRES,
+                               limit=40,offset=0)
+            self.assertEqual(page["total"],1)
+            self.assertEqual(page["datedCount"],0)
+            self.assertEqual(page["observedCount"],1)
+            self.assertEqual(page["items"][0]["timestamp"],
+                             later["timestamp"])
+
     def test_future_date_rejected(self):
         self.assertEqual(dated_history(backup(True,9999999999999999),_fields,
                          _utf8,BLOCKED_GENRES),[])
