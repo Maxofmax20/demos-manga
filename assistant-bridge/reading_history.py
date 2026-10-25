@@ -119,12 +119,22 @@ def read_activity(raw,file:Path,fields,decode,blocked,limit=60,offset=0):
          r.get("timeKind")=="observed_sync" and isinstance(r.get("timestamp"),int)
          and isinstance(r.get("mangaId"),str) and isinstance(r.get("chapterId"),str)]
     ids={(x["mangaId"],x["chapterId"]) for x in actual}
-    rows=actual+[x for x in verified if (x["mangaId"],x["chapterId"]) not in ids]
+    # A verified real timestamp supersedes a sync-observed approximation
+    # for the same exact Manga/source chapter. Only count included events:
+    # callers use these numbers to explain the paginated timeline.
+    unique_observed={}
+    for row in verified:
+        chapter=(row["mangaId"],row["chapterId"])
+        if chapter not in ids:
+            current=unique_observed.get(chapter)
+            if current is None or row["timestamp"]>current["timestamp"]:
+                unique_observed[chapter]=row
+    rows=actual+list(unique_observed.values())
     rows.sort(key=lambda x:x["timestamp"],reverse=True)
     total=len(rows)
     next_offset=offset+limit if offset+limit<total else None
     return dict(items=rows[offset:offset+limit],
-       datedCount=len(actual),observedCount=len(verified),
+       datedCount=len(actual),observedCount=len(unique_observed),
        total=total,offset=offset,hasMore=next_offset is not None,
        nextOffset=next_offset,
        hasHistoricalDates=bool(actual),source="Demos Manga private reader sync")
