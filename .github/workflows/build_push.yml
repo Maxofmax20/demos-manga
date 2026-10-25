@@ -64,7 +64,11 @@ jobs:
       - name: Check code format
         run: ./gradlew spotlessCheck
 
+      # Hosted push CI still validates preview. On a manual owner release,
+      # build the true unsigned release once rather than redundantly
+      # optimizing an entire preview with R8 first.
       - name: Build app
+        if: github.event_name != 'workflow_dispatch'
         run: |
           if [ "$MANGA_TELEMETRY_CONFIGURED" = "true" ]; then
             ./gradlew assemblePreview -Pinclude-telemetry -Penable-updater
