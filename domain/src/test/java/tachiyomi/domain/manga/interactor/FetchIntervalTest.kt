@@ -121,7 +121,8 @@ class FetchIntervalTest {
         val chaptersWithoutUploadDate = chaptersWithUploadDate.map {
             it.copy(dateUpload = 0L)
         }
-        fetchInterval.calculateInterval(chaptersWithoutUploadDate, testZoneId) shouldBe 1
+        // Fetch dates are not publisher dates. Use default source cadence.
+        fetchInterval.calculateInterval(chaptersWithoutUploadDate, testZoneId) shouldBe 7
     }
 
     @Test
@@ -132,11 +133,80 @@ class FetchIntervalTest {
         fetchInterval.calculateInterval(chapters, testZoneId) shouldBe 2
     }
 
+    @Test
+    fun clientPollingCannotProvePublisherCadence() {
+        val clientFetches = (1..5).map { day ->
+            chapter.copy(dateUpload = 0L, dateFetch = testTime.plusDays(day * 2L).toEpochSecond() * 1000)
+        }
+        fetchInterval.calculateInterval(clientFetches, testZoneId) shouldBe 7
+    }
+
+    @Test
+    fun weeklyReleaseAnchorsChecksToPublisherWeekday() {
+        val latest = ZonedDateTime.parse("2026-10-02T12:00:00Z")
+        val dates = (0..4).map { week ->
+            chapter.copy(dateUpload = latest.minusDays(week * 7L).toInstant().toEpochMilli())
+        }
+        val saturday = ZonedDateTime.parse("2026-10-03T10:00:00Z")
+        fetchInterval.calculateInterval(dates, testZoneId) shouldBe 7
+        fetchInterval.expectedNextCheckFromUploads(dates, 7, saturday) shouldBe
+            ZonedDateTime.parse("2026-10-09T00:00:00Z").toInstant().toEpochMilli()
+    }
+
+    @Test
+    fun dailyAndTwoDaySeriesKeepDistinctReleaseChecks() {
+        val now = ZonedDateTime.parse("2026-10-10T13:00:00Z")
+        val latest = ZonedDateTime.parse("2026-10-10T08:00:00Z")
+        val daily = (0..4).map { d ->
+            chapter.copy(dateUpload = latest.minusDays(d.toLong()).toInstant().toEpochMilli())
+        }
+        val alternate = (0..4).map { d ->
+            chapter.copy(dateUpload = latest.minusDays(d * 2L).toInstant().toEpochMilli())
+        }
+        fetchInterval.calculateInterval(daily, testZoneId) shouldBe 1
+        fetchInterval.calculateInterval(alternate, testZoneId) shouldBe 2
+        fetchInterval.expectedNextCheckFromUploads(daily, 1, now) shouldBe
+            ZonedDateTime.parse("2026-10-11T00:00:00Z").toInstant().toEpochMilli()
+        fetchInterval.expectedNextCheckFromUploads(alternate, 2, now) shouldBe
+            ZonedDateTime.parse("2026-10-12T00:00:00Z").toInstant().toEpochMilli()
+    }
+
+    @Test
+    fun onlyFutureDatedChaptersCannotDetermineReleaseCadence() {
+        val future = ZonedDateTime.now(testZoneId).plusDays(10)
+        val impossible = (1..5).map { idx ->
+            chapter.copy(dateUpload = future.plusDays(idx * 2L).toInstant().toEpochMilli())
+        }
+        fetchInterval.calculateInterval(impossible, testZoneId) shouldBe 7
+    }
+
+    @Test
+    fun missingStaleFutureDatesNeverBecomePublisherForecasts() {
+        val now = ZonedDateTime.parse("2026-10-10T13:00:00Z")
+        val old = ZonedDateTime.parse("2025-01-10T08:00:00Z")
+        val stale = (0..3).map { d ->
+            chapter.copy(dateUpload = old.minusDays(d * 7L).toInstant().toEpochMilli())
+        }
+        val fetched = (0..3).map { d ->
+            chapter.copy(dateUpload = 0L, dateFetch = now.minusDays(d * 7L).toInstant().toEpochMilli())
+        }
+        val future = (0..3).map { d ->
+            chapter.copy(dateUpload = now.plusDays((d + 1L) * 7L).toInstant().toEpochMilli())
+        }
+        fetchInterval.expectedNextCheckFromUploads(stale, 7, now) shouldBe null
+        fetchInterval.expectedNextCheckFromUploads(fetched, 7, now) shouldBe null
+        fetchInterval.expectedNextCheckFromUploads(future, 7, now) shouldBe null
+    }
+
     private fun chapterWithTime(chapter: Chapter, duration: Duration): Chapter {
         val newTime = testTime.plus(duration.toJavaDuration()).toEpochSecond() * 1000
         return chapter.copy(dateFetch = newTime, dateUpload = newTime)
     }
 
+    // chapterWithTime() adds to testTime, so this fixture must return a
+    // duration relative to testTime, not absolute epoch milliseconds.
+    // The old helper accidentally created year-2070 "release" timestamps.
     private fun List<Chapter>.lastUploadDate() =
-        last().dateUpload.toDuration(DurationUnit.MILLISECONDS)
+        (last().dateUpload - testTime.toEpochSecond() * 1000)
+            .toDuration(DurationUnit.MILLISECONDS)
 }

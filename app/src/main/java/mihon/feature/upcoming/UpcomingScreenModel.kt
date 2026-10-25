@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import mihon.domain.upcoming.interactor.GetUpcomingManga
-import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -26,10 +25,6 @@ import java.time.YearMonth
 class UpcomingScreenModel(
     private val getUpcomingManga: GetUpcomingManga = Injekt.get(),
 ) : StateScreenModel<UpcomingScreenModel.State>(State()) {
-    // KMK -->
-    private val libraryPreferences: LibraryPreferences = Injekt.get()
-    // KMK <--
-
     init {
         screenModelScope.launch {
             getUpcomingManga.subscribe().collectLatest {
@@ -48,14 +43,17 @@ class UpcomingScreenModel(
         }
         // KMK -->
         screenModelScope.launch {
-            mutableState.update { state ->
-                val updatingItems = getUpcomingManga.updatingMangas().toUpcomingUIModels()
-                state.copy(
-                    isLoadingUpdating = false,
-                    updatingItems = updatingItems,
-                    updatingEvents = updatingItems.toEvents(),
-                    updatingHeaderIndexes = updatingItems.getHeaderIndexes(),
-                )
+            getUpcomingManga.subscribeUpdatingMangas().collectLatest { manga ->
+                mutableState.update { state ->
+                    val updatingItems = manga.map { UpcomingUIModel.Item(it) }.toImmutableList()
+                    state.copy(
+                        isLoadingUpdating = false,
+                        updatingItems = updatingItems,
+                        // Eligible checks are not confirmed chapter dates.
+                        updatingEvents = persistentMapOf(),
+                        updatingHeaderIndexes = persistentMapOf(),
+                    )
+                }
             }
         }
         // KMK <--
@@ -102,8 +100,6 @@ class UpcomingScreenModel(
     }
 
     // KMK -->
-    val restriction by lazy { libraryPreferences.autoUpdateMangaRestrictions().get() }
-
     fun showUpdatingMangas() {
         mutableState.update { state ->
             state.copy(

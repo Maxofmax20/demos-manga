@@ -3,6 +3,8 @@ package mihon.domain.upcoming.interactor
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_HAS_UNREAD
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_NON_COMPLETED
@@ -13,8 +15,8 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.repository.MangaRepository
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZonedDateTime
 
 class GetUpcomingManga(
     private val mangaRepository: MangaRepository,
@@ -34,40 +36,44 @@ class GetUpcomingManga(
     }
 
     // KMK -->
-    suspend fun updatingMangas(): List<Manga> {
-        val libraryManga = getLibraryManga.await()
+    /**
+     * The eligible-to-update list follows source progress/category changes.
+     * The former one-off snapshot went stale after background updates.
+     */
+    fun subscribeUpdatingMangas(): Flow<List<Manga>> =
+        getLibraryManga.subscribe().map(::filterUpdatingMangas)
 
+    suspend fun updatingMangas(): List<Manga> =
+        filterUpdatingMangas(getLibraryManga.await())
+
+    private fun filterUpdatingMangas(libraryManga: List<LibraryManga>): List<Manga> {
         val includedCategories = libraryPreferences.updateCategories().get().map { it.toLong() }.toSet()
         val excludedCategories = libraryPreferences.updateCategoriesExclude().get().map { it.toLong() }.toSet()
-
-        val listToUpdate = libraryManga.filter {
-            val included = includedCategories.isEmpty() || it.categories.intersect(includedCategories).isNotEmpty()
-            val excluded = it.categories.intersect(excludedCategories).isNotEmpty()
-            included && !excluded
-        }
-
         val restrictions = libraryPreferences.autoUpdateMangaRestrictions().get()
-        val today = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toEpochSecond() * 1000
+        val upperBound = ZonedDateTime.now().toLocalDate()
+            .plusDays(2).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli() - 1
 
-        return listToUpdate
+        return libraryManga.asSequence()
+            .filter {
+                (includedCategories.isEmpty() || it.categories.any(includedCategories::contains)) &&
+                    it.categories.none(excludedCategories::contains)
+            }
             .distinctBy { it.manga.id }
             .filter {
                 when {
                     it.manga.updateStrategy != UpdateStrategy.ALWAYS_UPDATE -> false
-
                     MANGA_NON_COMPLETED in restrictions && it.manga.status.toInt() == SManga.COMPLETED -> false
-
                     MANGA_HAS_UNREAD in restrictions && it.unreadCount != 0L -> false
-
                     MANGA_NON_READ in restrictions && it.totalChapters > 0L && !it.hasStarted -> false
-
-                    MANGA_OUTSIDE_RELEASE_PERIOD in restrictions && it.manga.nextUpdate < today -> false
-
+                    // Match LibraryUpdateJob: an overdue title stays eligible.
+                    MANGA_OUTSIDE_RELEASE_PERIOD in restrictions &&
+                        !UpcomingSchedulePolicy.isEligibleWithinWindow(it.manga.nextUpdate, upperBound) -> false
                     else -> true
                 }
             }
             .map { it.manga }
-            .sortedBy { it.nextUpdate }
+            .sortedWith(compareBy<Manga> { it.nextUpdate > upperBound }.thenBy { it.nextUpdate })
+            .toList()
     }
     // KMK <--
 }

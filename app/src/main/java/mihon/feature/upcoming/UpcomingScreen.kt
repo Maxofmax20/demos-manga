@@ -8,7 +8,6 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_OUTSIDE_RELEASE_PERIOD
 
 class UpcomingScreen : Screen() {
 
@@ -26,7 +25,6 @@ class UpcomingScreen : Screen() {
             // KMK -->
             showUpdatingMangas = screenModel::showUpdatingMangas,
             hideUpdatingMangas = screenModel::hideUpdatingMangas,
-            isPredictReleaseDate = MANGA_OUTSIDE_RELEASE_PERIOD in screenModel.restriction,
             // KMK <--
         )
     }
