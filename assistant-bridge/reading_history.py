@@ -60,7 +60,17 @@ def dated_history(raw,fields,decode,blocked,now_ms=None,max_items=MAX_ITEMS):
                 continue
             result.append(dict(mangaId=mid,chapterId=_id(mid,url),title=title,
                                chapter=names[url],timestamp=last,timeKind="actual"))
-    return sorted(result,key=lambda x:x["timestamp"],reverse=True)[:max_items]
+    # KMK -->
+    # A backup can repeat the same source/chapter. History represents its latest
+    # actual read date, so deduplicate before limiting or calculating page totals.
+    unique={}
+    for row in result:
+        key=(row["mangaId"],row["chapterId"])
+        previous=unique.get(key)
+        if previous is None or row["timestamp"]>previous["timestamp"]:
+            unique[key]=row
+    return sorted(unique.values(),key=lambda x:x["timestamp"],reverse=True)[:max_items]
+    # KMK <--
 
 def _flags(raw,fields,decode,blocked):
     values={}

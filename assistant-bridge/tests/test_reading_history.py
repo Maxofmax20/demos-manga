@@ -108,3 +108,20 @@ class PrivateHistoryTests(unittest.TestCase):
     def test_future_date_rejected(self):
         self.assertEqual(dated_history(backup(True,9999999999999999),_fields,
                          _utf8,BLOCKED_GENRES),[])
+
+    # KMK -->
+    def test_duplicate_actual_records_keep_latest_date_before_pagination(self):
+        timestamp=1723000000000
+        # Duplicate backup records can contain different last-read values.
+        raw=backup(True,timestamp)+backup(True,timestamp+1000)
+        actual=dated_history(raw,_fields,_utf8,BLOCKED_GENRES,
+                             now_ms=timestamp+5000,max_items=1)
+        self.assertEqual(len(actual),1)
+        self.assertEqual(actual[0]["timestamp"],timestamp+1000)
+        with tempfile.TemporaryDirectory() as directory:
+            page=read_activity(raw,Path(directory)/"events.json",_fields,_utf8,
+                               BLOCKED_GENRES,limit=1)
+            self.assertEqual(page["total"],1)
+            self.assertEqual(page["datedCount"],1)
+            self.assertFalse(page["hasMore"])
+    # KMK <--
