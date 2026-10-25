@@ -60,7 +60,17 @@ def dated_history(raw,fields,decode,blocked,now_ms=None,max_items=MAX_ITEMS):
                 continue
             result.append(dict(mangaId=mid,chapterId=_id(mid,url),title=title,
                                chapter=names[url],timestamp=last,timeKind="actual"))
-    return sorted(result,key=lambda x:x["timestamp"],reverse=True)[:max_items]
+    # KMK -->
+    # A backup can repeat the same source/chapter. History represents its latest
+    # actual read date, so deduplicate before limiting or calculating page totals.
+    unique={}
+    for row in result:
+        key=(row["mangaId"],row["chapterId"])
+        previous=unique.get(key)
+        if previous is None or row["timestamp"]>previous["timestamp"]:
+            unique[key]=row
+    return sorted(unique.values(),key=lambda x:x["timestamp"],reverse=True)[:max_items]
+    # KMK <--
 
 def _flags(raw,fields,decode,blocked):
     values={}
@@ -108,7 +118,7 @@ def save_observed_events(file:Path,previous:bytes,current:bytes,fields,decode,bl
         if os.path.exists(tmp):os.unlink(tmp)
     return len(delta)
 
-def read_activity(raw,file:Path,fields,decode,blocked,limit=60,offset=0):
+def read_activity(raw,file:Path,fields,decode,blocked,limit=60,offset=0,distinct_titles=False):
     assert 1<=limit<=100 and 0<=offset<=MAX_HISTORY_EVENTS
     actual=dated_history(raw,fields,decode,blocked,
                          max_items=MAX_HISTORY_EVENTS)
@@ -131,6 +141,16 @@ def read_activity(raw,file:Path,fields,decode,blocked,limit=60,offset=0):
                 unique_observed[chapter]=row
     rows=actual+list(unique_observed.values())
     rows.sort(key=lambda x:x["timestamp"],reverse=True)
+    # KMK -->
+    # Latest genuine dated read per source title, before pagination. Sync-observed
+    # changes cannot establish a reading date for Continue reading.
+    if distinct_titles:
+        latest={}
+        for row in rows:
+            if row["timeKind"]=="actual" and row["mangaId"] not in latest:
+                latest[row["mangaId"]]=row
+        rows=list(latest.values())
+    # KMK <--
     total=len(rows)
     next_offset=offset+limit if offset+limit<total else None
     return dict(items=rows[offset:offset+limit],

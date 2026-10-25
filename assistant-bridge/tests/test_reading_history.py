@@ -108,3 +108,42 @@ class PrivateHistoryTests(unittest.TestCase):
     def test_future_date_rejected(self):
         self.assertEqual(dated_history(backup(True,9999999999999999),_fields,
                          _utf8,BLOCKED_GENRES),[])
+
+    # KMK -->
+    def test_duplicate_actual_records_keep_latest_date_before_pagination(self):
+        timestamp=1723000000000
+        # Duplicate backup records can contain different last-read values.
+        raw=backup(True,timestamp)+backup(True,timestamp+1000)
+        actual=dated_history(raw,_fields,_utf8,BLOCKED_GENRES,
+                             now_ms=timestamp+5000,max_items=1)
+        self.assertEqual(len(actual),1)
+        self.assertEqual(actual[0]["timestamp"],timestamp+1000)
+        with tempfile.TemporaryDirectory() as directory:
+            page=read_activity(raw,Path(directory)/"events.json",_fields,_utf8,
+                               BLOCKED_GENRES,limit=1)
+            self.assertEqual(page["total"],1)
+            self.assertEqual(page["datedCount"],1)
+            self.assertFalse(page["hasMore"])
+    # KMK <--
+
+# KMK -->
+class RecentTitleHistoryTests(unittest.TestCase):
+    def test_one_latest_actual_event_per_title_before_pagination(self):
+        import json
+        raw=b""
+        for i in range(3):
+            book=n(1,423)+m(2,f"/s{i}".encode())+m(3,f"Title {i}".encode())
+            for ch in range(5):
+                url=f"/c{ch}".encode()
+                book+=m(16,m(1,url)+m(2,b"Chapter")+n(4,1))
+                book+=m(104,m(1,url)+n(2,1723000000000+i*100+ch))
+            raw+=m(1,book)
+        with tempfile.TemporaryDirectory() as t:
+            file=Path(t)/"activity.json"
+            file.write_text(json.dumps([dict(mangaId="f"*24,chapterId="e"*24,title="Observed",chapter="Chapter",timestamp=1790000000000,timeKind="observed_sync")]))
+            page=read_activity(raw,file,_fields,_utf8,BLOCKED_GENRES,2,0,True)
+            self.assertEqual(page["total"],3)
+            self.assertEqual([r["title"] for r in page["items"]],["Title 2","Title 1"])
+            self.assertEqual(page["items"][0]["timestamp"],1723000000204)
+            self.assertTrue(page["hasMore"])
+# KMK <--

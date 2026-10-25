@@ -270,7 +270,10 @@ def assistant_stats(response: Response):
 
 
 @app.get("/api/assistant/reading-history")
-def assistant_reading_history(response: Response, limit: int = 60, offset: int = 0):
+# KMK -->
+def assistant_reading_history(response: Response, limit: int = 60, offset: int = 0,
+                              distinct_titles: bool = False):
+# KMK <--
     """Private reader timeline: actual dated reads or observed sync changes.
 
     No chapter text/images, account secrets or full device backup returned.
@@ -285,7 +288,7 @@ def assistant_reading_history(response: Response, limit: int = 60, offset: int =
                 "source": "Demos Manga private reader sync"}
     try:
         return read_activity(BACKUP_PATH.read_bytes(),READ_ACTIVITY_PATH,
-                             _fields,_utf8,BLOCKED_GENRES,limit,offset)
+                             _fields,_utf8,BLOCKED_GENRES,limit,offset,distinct_titles)
     except (OSError,ValueError):
         raise HTTPException(503,"Reader history snapshot unavailable")
 
