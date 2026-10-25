@@ -17,3 +17,10 @@
   Demos Manga/Cinema private sync remain intact.
 - Real-device QA remains pending. Kotlin tests and hosted CI must pass
   before publishing a signed official update.
+
+- Anchor each reliable predicted check to the most recent genuine chapter
+  upload weekday/period (not the latest manual app refresh). Daily, 2-day,
+  and weekly source cadences thus retain distinct check schedules.
+- Infer cadence from all chapters regardless of the user's visible filters.
+- Missing, future, or 90-day-stale upload dates trigger fallback source
+  checks; dates the reader fetched or read chapters are never substituted.

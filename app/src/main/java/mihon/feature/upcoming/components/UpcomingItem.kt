@@ -74,6 +74,16 @@ fun UpcomingItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
+            // Showing cadence is useful, but never mistake the
+            // estimated *source check* for a publisher release date.
+            if (upcoming.fetchInterval in 1..28 && upcoming.expectedNextUpdate != null) {
+                Text(
+                    text = stringResource(KMR.strings.demos_upcoming_check_cycle, upcoming.fetchInterval),
+                    maxLines = 1,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
         }
     }
 }

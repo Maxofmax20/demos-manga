@@ -263,4 +263,5 @@
     <string name="demos_upcoming_show_eligible">Show titles eligible for updates</string>
     <string name="demos_upcoming_estimated_prefix">Estimated check: </string>
     <string name="demos_upcoming_unknown_date">No known check date</string>
+    <string name="demos_upcoming_check_cycle">Estimated check interval: ~%1$d days</string>
 </resources>
