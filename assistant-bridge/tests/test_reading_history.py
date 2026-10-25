@@ -125,3 +125,25 @@ class PrivateHistoryTests(unittest.TestCase):
             self.assertEqual(page["datedCount"],1)
             self.assertFalse(page["hasMore"])
     # KMK <--
+
+# KMK -->
+class RecentTitleHistoryTests(unittest.TestCase):
+    def test_one_latest_actual_event_per_title_before_pagination(self):
+        import json
+        raw=b""
+        for i in range(3):
+            book=n(1,423)+m(2,f"/s{i}".encode())+m(3,f"Title {i}".encode())
+            for ch in range(5):
+                url=f"/c{ch}".encode()
+                book+=m(16,m(1,url)+m(2,b"Chapter")+n(4,1))
+                book+=m(104,m(1,url)+n(2,1723000000000+i*100+ch))
+            raw+=m(1,book)
+        with tempfile.TemporaryDirectory() as t:
+            file=Path(t)/"activity.json"
+            file.write_text(json.dumps([dict(mangaId="f"*24,chapterId="e"*24,title="Observed",chapter="Chapter",timestamp=1790000000000,timeKind="observed_sync")]))
+            page=read_activity(raw,file,_fields,_utf8,BLOCKED_GENRES,2,0,True)
+            self.assertEqual(page["total"],3)
+            self.assertEqual([r["title"] for r in page["items"]],["Title 2","Title 1"])
+            self.assertEqual(page["items"][0]["timestamp"],1723000000204)
+            self.assertTrue(page["hasMore"])
+# KMK <--
