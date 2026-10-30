@@ -360,6 +360,10 @@ class MangaScreen(
             }.takeIf { isHttpSource },
             onDownloadActionClicked = screenModel::runDownloadAction.takeIf { !successState.source.isLocalOrStub() },
             onEditCategoryClicked = screenModel::showChangeCategoryDialog.takeIf { successState.manga.favorite },
+            autoDownloadEnabled = screenModel.isAutoDownloadSelected,
+            onToggleAutoDownload = screenModel::toggleAutoDownload.takeIf {
+                successState.manga.favorite && !successState.source.isLocalOrStub()
+            },
             onEditFetchIntervalClicked = screenModel::showSetFetchIntervalDialog.takeIf {
                 successState.manga.favorite
             },
