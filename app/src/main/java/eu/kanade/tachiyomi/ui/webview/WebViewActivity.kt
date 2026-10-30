@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.connections.discord.DiscordRPCService
 import eu.kanade.tachiyomi.data.connections.discord.DiscordScreen
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.network.interceptor.OlympusStaffUrlFix
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.base.activity.BaseActivity
 import eu.kanade.tachiyomi.util.system.WebViewUtil
@@ -58,7 +59,7 @@ class WebViewActivity : BaseActivity() {
             return
         }
 
-        val url = intent.extras?.getString(URL_KEY) ?: return
+        val url = OlympusStaffUrlFix.normalize(intent.extras?.getString(URL_KEY) ?: return)
         assistUrl = url
 
         var headers = emptyMap<String, String>()
