@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.network
 
 import android.content.Context
 import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
+import eu.kanade.tachiyomi.network.interceptor.OlympusStaffInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UncaughtExceptionInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UserAgentInterceptor
 import exh.log.EHLogLevel
@@ -50,6 +51,7 @@ import kotlin.random.Random
                 ),
             )
             .addInterceptor(UncaughtExceptionInterceptor())
+            .addInterceptor(OlympusStaffInterceptor())
             .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider))
 
         // KMK -->

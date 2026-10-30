@@ -11,6 +11,7 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.webview.WebViewScreenContent
 import eu.kanade.tachiyomi.data.connections.discord.DiscordRPCService
 import eu.kanade.tachiyomi.data.connections.discord.DiscordScreen
+import eu.kanade.tachiyomi.network.interceptor.OlympusStaffUrlFix
 import tachiyomi.core.common.util.lang.launchIO
 
 class WebViewScreen(
@@ -32,7 +33,7 @@ class WebViewScreen(
         WebViewScreenContent(
             onNavigateUp = { navigator.pop() },
             initialTitle = initialTitle,
-            url = url,
+            url = OlympusStaffUrlFix.normalize(url),
             headers = screenModel.headers,
             onUrlChange = { assistUrl = it },
             onShare = { screenModel.shareWebpage(context, it) },
