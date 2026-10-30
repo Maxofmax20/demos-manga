@@ -128,6 +128,7 @@ import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.chapter.service.calculateChapterGap
 import tachiyomi.domain.chapter.service.getChapterSort
+import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.libraryUpdateError.interactor.DeleteLibraryUpdateErrors
 import tachiyomi.domain.libraryUpdateError.interactor.InsertLibraryUpdateErrors
@@ -180,6 +181,7 @@ class MangaScreenModel(
     private val smartSearched: Boolean,
     // SY <--
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
+    private val downloadPreferences: DownloadPreferences = Injekt.get(),
     private val trackPreferences: TrackPreferences = Injekt.get(),
     readerPreferences: ReaderPreferences = Injekt.get(),
     private val uiPreferences: UiPreferences = Injekt.get(),
@@ -250,6 +252,19 @@ class MangaScreenModel(
 
     private val isFavorited: Boolean
         get() = manga?.favorite ?: false
+
+    private val autoDownloadMangaIds by downloadPreferences.autoDownloadMangaIds().asState(screenModelScope)
+
+    val isAutoDownloadSelected: Boolean
+        get() = mangaId.toString() in autoDownloadMangaIds
+
+    fun toggleAutoDownload() {
+        if (!isFavorited) return
+        val selectedId = mangaId.toString()
+        downloadPreferences.autoDownloadMangaIds().getAndSet { selected ->
+            if (selectedId in selected) selected - selectedId else selected + selectedId
+        }
+    }
 
     private val allChapters: List<ChapterList.Item>?
         get() = successState?.chapters

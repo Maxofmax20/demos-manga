@@ -45,6 +45,8 @@ fun MangaToolbar(
     onClickShare: (() -> Unit)?,
     onClickDownload: ((DownloadAction) -> Unit)?,
     onClickEditCategory: (() -> Unit)?,
+    autoDownloadEnabled: Boolean,
+    onToggleAutoDownload: (() -> Unit)?,
     onClickRefresh: () -> Unit,
     onClickMigrate: (() -> Unit)?,
     onClickEditNotes: () -> Unit,
@@ -165,6 +167,18 @@ fun MangaToolbar(
                             AppBar.OverflowAction(
                                 title = stringResource(MR.strings.action_edit_categories),
                                 onClick = onClickEditCategory,
+                            ),
+                        )
+                    }
+                    if (onToggleAutoDownload != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = if (autoDownloadEnabled) {
+                                    "Always auto-download new chapters: On"
+                                } else {
+                                    "Always auto-download new chapters: Off"
+                                },
+                                onClick = onToggleAutoDownload,
                             ),
                         )
                     }

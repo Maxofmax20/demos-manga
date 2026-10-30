@@ -31,4 +31,5 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew spotlessCheck
       - run: ./gradlew :core:common:testDebugUnitTest
+      - run: ./gradlew :domain:testDebugUnitTest
       - run: ./gradlew assembleDebug

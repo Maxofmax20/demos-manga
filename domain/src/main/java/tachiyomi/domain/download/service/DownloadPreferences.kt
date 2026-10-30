@@ -30,6 +30,9 @@ class DownloadPreferences(
 
     fun downloadNewChapters() = preferenceStore.getBoolean("download_new", false)
 
+    /** Explicit favorites that receive new chapter downloads regardless of global/category rules. */
+    fun autoDownloadMangaIds() = preferenceStore.getStringSet("auto_download_selected_manga_ids", emptySet())
+
     fun downloadNewChapterCategories() = preferenceStore.getStringSet(DOWNLOAD_NEW_CATEGORIES_PREF_KEY, emptySet())
 
     fun downloadNewChapterCategoriesExclude() =

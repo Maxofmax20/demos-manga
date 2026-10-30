@@ -31,11 +31,15 @@ class FilterChaptersForDownload(
      * @return A list of chapters that should be downloaded
      */
     suspend fun await(manga: Manga, newChapters: List<Chapter>): List<Chapter> {
-        if (
-            newChapters.isEmpty() ||
-            !downloadPreferences.downloadNewChapters().get() ||
-            !manga.shouldDownloadNewChapters()
-        ) {
+        if (newChapters.isEmpty()) return emptyList()
+        val selected = manga.id.toString() in downloadPreferences.autoDownloadMangaIds().get()
+        val globalEnabled = downloadPreferences.downloadNewChapters().get()
+        val categoryAllowed = if (!selected && globalEnabled && manga.favorite) {
+            manga.shouldDownloadNewChapters()
+        } else {
+            false
+        }
+        if (!shouldAutoDownloadNewChapters(manga.favorite, selected, globalEnabled, categoryAllowed)) {
             return emptyList()
         }
 
@@ -87,3 +91,11 @@ class FilterChaptersForDownload(
         private const val DEFAULT_CATEGORY_ID = 0L
     }
 }
+
+/** Selected manga override the global and category rules, but must remain in the library. */
+internal fun shouldAutoDownloadNewChapters(
+    isFavorite: Boolean,
+    selected: Boolean,
+    globalEnabled: Boolean,
+    categoryAllowed: Boolean,
+): Boolean = isFavorite && (selected || (globalEnabled && categoryAllowed))
