@@ -1,3 +1,10 @@
+## Demos Manga v0.7.1 — Continue Reading Cover Grid
+
+- Show **Continue Reading** as a compact manga cover grid matching Library (cover art, title overlays, unread badges, source/language icons and reader play buttons).
+- Preserve actual last-read ordering, the completed-title toggle and one-tap next-chapter resume.
+- Tapping the cover opens manga details; tapping the play icon resumes reading. Small progress/time captions replace oversized text list rows.
+- No changes to manga identity, reading history, downloads or library storage. In-place update over v0.7.0.
+
 ## Demos Manga v0.7.0 — Smart Library & Downloads
 
 - **Smart Downloads:** select or remove individual manga, search your on-device library, see queue size, launch a selected-title update, and configure Wi-Fi-only downloading and a per-update cap on new chapters (defaults to unlimited for compatibility).
