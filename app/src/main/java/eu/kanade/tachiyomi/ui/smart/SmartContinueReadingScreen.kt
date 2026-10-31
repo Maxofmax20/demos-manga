@@ -45,6 +45,8 @@ import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.model.MangaCover
+import tachiyomi.domain.source.model.Source as DomainSource
+import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.presentation.core.components.Badge
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -130,6 +132,15 @@ object SmartContinueReadingScreen : Screen() {
                     items(recent, key = { it.id }) { entry ->
                         val manga = entry.manga
                         val source = remember(manga.source) { sourceManager.getOrStub(manga.source) }
+                        val domainSource = remember(source) {
+                            DomainSource(
+                                id = source.id,
+                                lang = source.lang,
+                                name = source.name,
+                                supportsLatest = source.supportsLatest,
+                                isStub = source is StubSource,
+                            )
+                        }
                         Column {
                             MangaCompactGridItem(
                                 title = manga.title,
@@ -147,7 +158,7 @@ object SmartContinueReadingScreen : Screen() {
                                 },
                                 coverBadgeEnd = {
                                     LanguageBadge(isLocal = source.isLocal(), sourceLanguage = source.lang)
-                                    SourceIconBadge(source = source)
+                                    SourceIconBadge(source = domainSource)
                                 },
                                 onClick = { openDetails(entry.id) },
                                 onLongClick = { openDetails(entry.id) },
