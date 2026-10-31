@@ -28,8 +28,8 @@ android {
     defaultConfig {
         applicationId = "me.demos25.manga"
 
-        versionCode = 18
-        versionName = "0.7.1"
+        versionCode = 19
+        versionName = "0.8.0"
 
         buildConfigField("String", "COMMIT_COUNT", "\"${getCommitCount()}\"")
         buildConfigField("String", "COMMIT_SHA", "\"${getGitSha()}\"")

@@ -1,3 +1,10 @@
+## Demos Manga v0.8.0 — Reliability & Polish
+
+- **Source Repair:** explicit per-source homepage checks with an eight-second network deadline and no automatic remote-site polling. Reports redirects, Discord redirects, blocked access and missing extensions without falsely claiming chapter pages work. Existing errors, retry and migration remain available.
+- **Smart Downloads:** per-title pending/active/error counts, failure summary, storage refresh and voluntary pause when storage is low. Uses the same native queue and existing disk-space guard.
+- **Library updates:** replace the oversized red updating banner with a slim status row and progress line while preserving progress and restoration/sync indicators.
+- **Safety:** source checks are manual; no manga reading history, downloaded chapters, accounts, database migrations or category memberships are modified.
+
 ## Demos Manga v0.7.1 — Continue Reading Cover Grid
 
 - Show **Continue Reading** as a compact manga cover grid matching Library (cover art, title overlays, unread badges, source/language icons and reader play buttons).

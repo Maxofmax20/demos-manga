@@ -16,7 +16,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -26,22 +28,37 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.libraryUpdateError.LibraryUpdateErrorScreen
 import eu.kanade.tachiyomi.ui.libraryUpdateError.LibraryUpdateErrorScreenModel
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import mihon.feature.migration.config.MigrationConfigScreen
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.Request
+import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.presentation.core.components.material.Scaffold
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
+import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 /**
- * Present last-known library update failures by source. No live reachability
- * assertions: a source with zero recorded failures is not necessarily online.
+ * Keep historical library failures visible and offer explicit, bounded homepage
+ * probes for affected sources. A responding homepage does not certify chapters.
  */
 object SourceHealthScreen : Screen() {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        val sourceManager = remember { Injekt.get<SourceManager>() }
+        val probeResults = remember { mutableStateMapOf<Long, String>() }
+        val probing = remember { mutableStateMapOf<Long, Boolean>() }
         val screenModel = rememberScreenModel { LibraryUpdateErrorScreenModel() }
         val state by screenModel.state.collectAsState()
         val groups = remember(state.items) {
@@ -70,7 +87,7 @@ object SourceHealthScreen : Screen() {
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         Text(
-                            "Based on your last library updates. This is not a live website check; retry only when you are ready.",
+                            "Historical failures from library updates. Check a source homepage manually to test its current response; this cannot verify individual chapters.",
                             style = MaterialTheme.typography.bodySmall,
                         )
                         TextButton(onClick = { navigator.push(LibraryUpdateErrorScreen()) }) {
@@ -89,6 +106,8 @@ object SourceHealthScreen : Screen() {
                 items(groups, key = { it.first().error.mangaSource }) { group ->
                     val affected = group.map { it.error.mangaId }.distinct()
                     val examples = group.take(3)
+                    val sourceId = group.first().error.mangaSource
+                    val source = remember(sourceId) { sourceManager.get(sourceId) as? HttpSource }
                     Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
                         Column(
                             modifier = Modifier.padding(16.dp),
@@ -99,6 +118,30 @@ object SourceHealthScreen : Screen() {
                                 affected.size.toString() + " affected manga",
                                 color = MaterialTheme.colorScheme.error,
                             )
+                            Text(
+                                probeResults[sourceId] ?: "Website not checked this session",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            OutlinedButton(
+                                enabled = source != null && probing[sourceId] != true,
+                                onClick = {
+                                    val currentSource = source ?: return@OutlinedButton
+                                    probing[sourceId] = true
+                                    probeResults[sourceId] = "Checking homepage..."
+                                    scope.launch {
+                                        try {
+                                            probeResults[sourceId] = withContext(Dispatchers.IO) {
+                                                probeSourceHomepage(currentSource)
+                                            }
+                                        } finally {
+                                            probing.remove(sourceId)
+                                        }
+                                    }
+                                },
+                            ) { Text(if (probing[sourceId] == true) "Checking..." else "Check website") }
+                            if (source == null) {
+                                Text("Extension missing or source unavailable; reinstall it before retrying.")
+                            }
                             examples.forEach { item ->
                                 val message = messages[item.error.messageId]?.message.orEmpty()
                                 Text(
@@ -145,4 +188,50 @@ internal fun classifySourceFailure(message: String): String {
         "404" in m || "not found" in m -> "Page not found"
         else -> "Update failed"
     }
+}
+
+/**
+ * Manual, read-only source-homepage diagnostic. Never auto-poll, run parsers,
+ * download chapters or follow redirects to unrelated hosts.
+ */
+internal fun probeSourceHomepage(source: HttpSource): String {
+    val home = source.getHomeUrl().toHttpUrlOrNull()
+        ?: return "Source homepage URL is invalid"
+    if (home.scheme != "https" && home.scheme != "http") return "Unsupported source URL"
+    val client = source.client.newBuilder()
+        .followRedirects(false)
+        .followSslRedirects(false)
+        .callTimeout(8, TimeUnit.SECONDS)
+        .build()
+
+    fun execute(head: Boolean): Pair<Int, String?> {
+        val request = Request.Builder().url(home).apply {
+            if (head) head() else get()
+        }.build()
+        return client.newCall(request).execute().use { response ->
+            response.code to response.header("Location")
+        }
+    }
+
+    return try {
+        var result = execute(head = true)
+        if (result.first == 405 || result.first == 501) {
+            result = execute(head = false)
+        }
+        classifyHomepageProbe(result.first, result.second)
+    } catch (e: IOException) {
+        "Network check failed: " + (e.message?.take(100) ?: "Connection unavailable")
+    } catch (e: IllegalArgumentException) {
+        "Source URL could not be checked"
+    }
+}
+
+internal fun classifyHomepageProbe(status: Int, location: String?): String = when {
+    status in 300..399 && location.orEmpty().contains("discord", ignoreCase = true) ->
+        "Redirects to Discord: site may be unavailable"
+    status in 300..399 -> "Homepage redirects (HTTP $status); chapter access unverified"
+    status in 200..299 -> "Homepage responds (HTTP $status); chapters not verified"
+    status == 401 || status == 403 || status == 429 -> "Homepage access blocked (HTTP $status)"
+    status == 404 -> "Homepage not found (HTTP 404)"
+    else -> "Homepage HTTP $status; check original error log"
 }
