@@ -45,7 +45,6 @@ import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.model.MangaCover
-import tachiyomi.domain.source.model.Source as DomainSource
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.presentation.core.components.Badge
@@ -54,6 +53,7 @@ import tachiyomi.presentation.core.util.plus
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import tachiyomi.domain.source.model.Source as DomainSource
 
 /**
  * The same cover grid as Library, ordered by the last genuine reading event.
