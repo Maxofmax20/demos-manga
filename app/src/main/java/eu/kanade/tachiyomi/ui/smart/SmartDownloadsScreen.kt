@@ -38,6 +38,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
+import eu.kanade.tachiyomi.source.isLocalOrStub
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.util.system.toast
@@ -45,6 +46,7 @@ import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.interactor.GetLibraryManga
+import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.presentation.core.components.material.Scaffold
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -61,12 +63,13 @@ object SmartDownloadsScreen : Screen() {
         val scope = rememberCoroutineScope()
         val preferences = remember { Injekt.get<DownloadPreferences>() }
         val downloadManager = remember { Injekt.get<DownloadManager>() }
+        val sourceManager = remember { Injekt.get<SourceManager>() }
         val libraryFlow = remember { Injekt.get<GetLibraryManga>().subscribe() }
 
         val library by libraryFlow.collectAsState(initial = emptyList<LibraryManga>())
-        val selectedIds by preferences.autoDownloadMangaIds().asState(scope)
-        val wifiOnly by preferences.downloadOnlyOverWifi().asState(scope)
-        val limit by preferences.autoDownloadChapterLimit().asState(scope)
+        val selectedIds by remember(preferences, scope) { preferences.autoDownloadMangaIds().asState(scope) }
+        val wifiOnly by remember(preferences, scope) { preferences.downloadOnlyOverWifi().asState(scope) }
+        val limit by remember(preferences, scope) { preferences.autoDownloadChapterLimit().asState(scope) }
         val queue by downloadManager.queueState.collectAsState()
         val isRunning by downloadManager.isDownloaderRunning.collectAsState()
 
@@ -74,9 +77,10 @@ object SmartDownloadsScreen : Screen() {
         var search by remember { mutableStateOf("") }
         var clearConfirmation by remember { mutableStateOf(false) }
 
-        val visible = remember(library, selectedIds, showAll, search) {
+        val visible = remember(library, selectedIds, showAll, search, sourceManager) {
             library.asSequence()
                 .filter { showAll || it.id.toString() in selectedIds }
+                .filter { it.id.toString() in selectedIds || !sourceManager.getOrStub(it.manga.source).isLocalOrStub() }
                 .filter { it.manga.title.contains(search, ignoreCase = true) }
                 .sortedWith(
                     compareByDescending<LibraryManga> { it.id.toString() in selectedIds }
@@ -134,7 +138,7 @@ object SmartDownloadsScreen : Screen() {
                         OutlinedButton(
                             onClick = {
                                 val ids = library
-                                    .filter { it.id.toString() in selectedIds }
+                                    .filter { it.id.toString() in selectedIds && !sourceManager.getOrStub(it.manga.source).isLocalOrStub() }
                                     .map { it.id }
                                 if (ids.isNotEmpty() && LibraryUpdateJob.startNow(context, mangaIds = ids)) {
                                     context.toast("Checking selected manga for new chapters")
@@ -186,7 +190,7 @@ object SmartDownloadsScreen : Screen() {
                         }
                         TextButton(
                             onClick = { clearConfirmation = true },
-                            enabled = configured > 0,
+                            enabled = selectedIds.isNotEmpty(),
                         ) { Text("Clear selections") }
                     }
                     OutlinedTextField(
@@ -213,13 +217,16 @@ object SmartDownloadsScreen : Screen() {
                 } else {
                     items(visible, key = { it.id }) { entry ->
                         val checked = entry.id.toString() in selectedIds
+                        val available = !sourceManager.getOrStub(entry.manga.source).isLocalOrStub()
                         ListItem(
                             headlineContent = {
                                 Text(entry.manga.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             },
                             supportingContent = {
                                 Text(
-                                    if (checked) {
+                                    if (!available) {
+                                        "Source not installed or local: auto-download unavailable"
+                                    } else if (checked) {
                                         "Auto-download enabled • " + entry.unreadCount.coerceAtLeast(0) + " unread"
                                     } else {
                                         "Not selected"
@@ -230,11 +237,15 @@ object SmartDownloadsScreen : Screen() {
                                 Checkbox(
                                     checked = checked,
                                     onCheckedChange = { setSelected(preferences, entry.id, it) },
+                                    enabled = available,
                                 )
                             },
                             modifier = Modifier.clickable { navigator.push(MangaScreen(entry.id)) },
                             trailingContent = {
-                                TextButton(onClick = { setSelected(preferences, entry.id, !checked) }) {
+                                TextButton(
+                                    enabled = available,
+                                    onClick = { setSelected(preferences, entry.id, !checked) },
+                                ) {
                                     Text(if (checked) "Remove" else "Add")
                                 }
                             },
@@ -253,9 +264,7 @@ object SmartDownloadsScreen : Screen() {
                 },
                 confirmButton = {
                     TextButton(onClick = {
-                        preferences.autoDownloadMangaIds().getAndSet { existing ->
-                            existing - library.map { it.id.toString() }.toSet()
-                        }
+                        preferences.autoDownloadMangaIds().set(emptySet())
                         clearConfirmation = false
                     }) { Text("Clear selections") }
                 },
