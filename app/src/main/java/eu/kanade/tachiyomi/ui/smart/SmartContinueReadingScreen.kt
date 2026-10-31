@@ -36,6 +36,8 @@ import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.interactor.GetLibraryManga
@@ -56,6 +58,7 @@ object SmartContinueReadingScreen : Screen() {
         val scope = rememberCoroutineScope()
         val libraryFlow = remember { Injekt.get<GetLibraryManga>().subscribe() }
         val getNextChapters = remember { Injekt.get<GetNextChapters>() }
+        val getHistory = remember { Injekt.get<GetHistory>() }
         val library by libraryFlow.collectAsState(initial = emptyList<LibraryManga>())
         var showFinished by remember { mutableStateOf(false) }
 
@@ -123,7 +126,12 @@ object SmartContinueReadingScreen : Screen() {
                                         onClick = {
                                             scope.launch {
                                                 val next = withContext(Dispatchers.IO) {
-                                                    getNextChapters.await(entry.id, onlyUnread = true).firstOrNull()
+                                                    val recentChapterId = getHistory.await(entry.id)
+                                                        .filter { it.readAt != null }
+                                                        .maxByOrNull { it.readAt?.time ?: 0L }
+                                                        ?.chapterId
+                                                    val chapters = getNextChapters.await(entry.id, onlyUnread = false)
+                                                    findNextChapterToRead(chapters, recentChapterId)
                                                 }
                                                 if (next != null) {
                                                     context.startActivity(
@@ -146,4 +154,13 @@ object SmartContinueReadingScreen : Screen() {
             }
         }
     }
+}
+
+/** Resume at the latest chapter if unfinished, otherwise the next unread one. */
+internal fun findNextChapterToRead(chapters: List<Chapter>, lastChapterId: Long?): Chapter? {
+    val index = chapters.indexOfFirst { it.id == lastChapterId }
+    if (index >= 0) {
+        chapters.drop(index).firstOrNull { !it.read }?.let { return it }
+    }
+    return chapters.firstOrNull { !it.read }
 }
