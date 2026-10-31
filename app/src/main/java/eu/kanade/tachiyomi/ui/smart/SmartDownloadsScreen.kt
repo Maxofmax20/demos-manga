@@ -102,6 +102,7 @@ object SmartDownloadsScreen : Screen() {
         var freeStorageBytes by remember {
             mutableStateOf(runCatching { StatFs(context.filesDir.absolutePath).availableBytes }.getOrNull())
         }
+        val storageBytes = freeStorageBytes
         val lowStorage = freeStorageBytes?.let { it < 1024L * 1024L * 1024L } == true
 
         Scaffold(
@@ -122,9 +123,9 @@ object SmartDownloadsScreen : Screen() {
                             "Only newly discovered chapters are queued. Existing downloads and reading progress stay untouched.",
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        if (freeStorageBytes != null) {
+                        if (storageBytes != null) {
                             Text(
-                                "Free device storage: " + (freeStorageBytes / (1024L * 1024L)) + " MB",
+                                "Free device storage: " + (storageBytes / (1024L * 1024L)) + " MB",
                                 style = MaterialTheme.typography.bodySmall,
                             )
                             if (lowStorage) {
