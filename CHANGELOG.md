@@ -1,3 +1,11 @@
+## Demos Manga v0.7.0 — Smart Library & Downloads
+
+- **Smart Downloads:** select or remove individual manga, search your on-device library, see queue size, launch a selected-title update, and configure Wi-Fi-only downloading and a per-update cap on new chapters (defaults to unlimited for compatibility).
+- **Continue Reading:** a reading-first list sorted by the device's actual last-read time, hiding fully read titles by default. Open the next unread chapter or view the manga details.
+- **Source Repair Center:** group the library's recorded update failures by source, distinguish redirects, timeouts, access blocks, missing extensions and missing pages, and allow manual retries or user-directed migration. This is not a live source-health guarantee.
+- **Navigation:** added dedicated entries in More, shortcuts in the library toolbar and download queue.
+- **Safety:** preserves manga/chapter IDs, download files, existing selections, categories and history. No database migration, no unsolicited automatic migration or download deletion.
+
 # Changelog
 
 All notable changes to this project will be documented in this file.

@@ -69,6 +69,9 @@ fun MoreScreen(
     showNavHistory: Boolean,
     // SY <--
     onClickDownloadQueue: () -> Unit,
+    onClickSmartDownloads: () -> Unit,
+    onClickContinueReading: () -> Unit,
+    onClickSourceHealth: () -> Unit,
     onClickCategories: () -> Unit,
     onClickStats: () -> Unit,
     onClickDataAndStorage: () -> Unit,
@@ -169,6 +172,30 @@ fun MoreScreen(
                     },
                     icon = Icons.Outlined.GetApp,
                     onPreferenceClick = onClickDownloadQueue,
+                )
+            }
+            item {
+                TextPreferenceWidget(
+                    title = "Smart Downloads",
+                    subtitle = "Manage auto-download manga, Wi-Fi, limits and download queue",
+                    icon = Icons.Outlined.GetApp,
+                    onPreferenceClick = onClickSmartDownloads,
+                )
+            }
+            item {
+                TextPreferenceWidget(
+                    title = "Continue Reading",
+                    subtitle = "Your most recently read, unfinished manga",
+                    icon = Icons.Outlined.History,
+                    onPreferenceClick = onClickContinueReading,
+                )
+            }
+            item {
+                TextPreferenceWidget(
+                    title = "Source Repair Center",
+                    subtitle = "Diagnose failed source updates and review migration options",
+                    icon = Icons.Outlined.NewReleases,
+                    onPreferenceClick = onClickSourceHealth,
                 )
             }
             item {

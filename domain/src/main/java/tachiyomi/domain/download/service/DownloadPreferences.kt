@@ -33,6 +33,9 @@ class DownloadPreferences(
     /** Explicit favorites that receive new chapter downloads regardless of global/category rules. */
     fun autoDownloadMangaIds() = preferenceStore.getStringSet("auto_download_selected_manga_ids", emptySet())
 
+    /** Zero keeps the previous unlimited behavior. Otherwise limit each newly discovered batch. */
+    fun autoDownloadChapterLimit() = preferenceStore.getInt("auto_download_chapter_limit", 0)
+
     fun downloadNewChapterCategories() = preferenceStore.getStringSet(DOWNLOAD_NEW_CATEGORIES_PREF_KEY, emptySet())
 
     fun downloadNewChapterCategoriesExclude() =

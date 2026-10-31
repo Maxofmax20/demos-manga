@@ -43,7 +43,10 @@ class FilterChaptersForDownload(
             return emptyList()
         }
 
-        if (!downloadPreferences.downloadNewUnreadChaptersOnly().get()) return newChapters
+        val maxPerManga = downloadPreferences.autoDownloadChapterLimit().get()
+        if (!downloadPreferences.downloadNewUnreadChaptersOnly().get()) {
+            return limitNewChapterDownloads(newChapters, maxPerManga) { it.sourceOrder }
+        }
 
         // SY -->
         val existingChapters = if (manga.source == MERGED_SOURCE_ID) {
@@ -59,7 +62,10 @@ class FilterChaptersForDownload(
             .map { it.chapterNumber }
             .toSet()
 
-        return newChapters.filterNot { it.chapterNumber in readChapterNumbers }
+        return limitNewChapterDownloads(
+            newChapters.filterNot { it.chapterNumber in readChapterNumbers },
+            maxPerManga,
+        ) { it.sourceOrder }
     }
 
     /**
@@ -99,3 +105,20 @@ internal fun shouldAutoDownloadNewChapters(
     globalEnabled: Boolean,
     categoryAllowed: Boolean,
 ): Boolean = isFavorite && (selected || (globalEnabled && categoryAllowed))
+
+/**
+ * Source order 0 is newest. Choose the newest N entries even when the update
+ * worker has reordered them oldest-first for sequential queue downloads.
+ * Retain the caller's original order in the returned queue batch.
+ */
+internal fun <T> limitNewChapterDownloads(
+    chapters: List<T>,
+    maximum: Int,
+    sourceOrder: (T) -> Long,
+): List<T> {
+    if (maximum <= 0 || chapters.size <= maximum) return chapters
+    val newestIndices = chapters.indices.sortedWith(compareBy({ sourceOrder(chapters[it]) }, { it }))
+        .take(maximum)
+        .toSet()
+    return chapters.filterIndexed { index, _ -> index in newestIndices }
+}
