@@ -32,4 +32,5 @@ jobs:
       - run: ./gradlew spotlessCheck
       - run: ./gradlew :core:common:testDebugUnitTest
       - run: ./gradlew :domain:testDebugUnitTest
+      - run: ./gradlew :app:testDebugUnitTest --tests eu.kanade.tachiyomi.ui.smart.SourceHealthDiagnosticsTest
       - run: ./gradlew assembleDebug
