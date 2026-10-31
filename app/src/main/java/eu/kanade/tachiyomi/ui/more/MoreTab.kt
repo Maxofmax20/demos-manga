@@ -31,6 +31,9 @@ import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import eu.kanade.tachiyomi.ui.history.HistoryTab
 import eu.kanade.tachiyomi.ui.libraryUpdateError.LibraryUpdateErrorScreen
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
+import eu.kanade.tachiyomi.ui.smart.SmartContinueReadingScreen
+import eu.kanade.tachiyomi.ui.smart.SmartDownloadsScreen
+import eu.kanade.tachiyomi.ui.smart.SourceHealthScreen
 import eu.kanade.tachiyomi.ui.stats.StatsScreen
 import eu.kanade.tachiyomi.ui.updates.UpdatesTab
 import exh.ui.batchadd.BatchAddScreen
@@ -82,6 +85,9 @@ data object MoreTab : Tab {
             showNavHistory = screenModel.showNavHistory,
             // SY <--
             onClickDownloadQueue = { navigator.push(DownloadQueueScreen) },
+            onClickSmartDownloads = { navigator.push(SmartDownloadsScreen) },
+            onClickContinueReading = { navigator.push(SmartContinueReadingScreen) },
+            onClickSourceHealth = { navigator.push(SourceHealthScreen) },
             onClickCategories = { navigator.push(CategoryScreen()) },
             onClickStats = { navigator.push(StatsScreen()) },
             onClickDataAndStorage = { navigator.push(SettingsScreen(SettingsScreen.Destination.DataAndStorage)) },

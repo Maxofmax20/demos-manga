@@ -43,7 +43,10 @@ class FilterChaptersForDownload(
             return emptyList()
         }
 
-        if (!downloadPreferences.downloadNewUnreadChaptersOnly().get()) return newChapters
+        val maxPerManga = downloadPreferences.autoDownloadChapterLimit().get()
+        if (!downloadPreferences.downloadNewUnreadChaptersOnly().get()) {
+            return limitNewChapterDownloads(newChapters, maxPerManga)
+        }
 
         // SY -->
         val existingChapters = if (manga.source == MERGED_SOURCE_ID) {
@@ -59,7 +62,10 @@ class FilterChaptersForDownload(
             .map { it.chapterNumber }
             .toSet()
 
-        return newChapters.filterNot { it.chapterNumber in readChapterNumbers }
+        return limitNewChapterDownloads(
+            newChapters.filterNot { it.chapterNumber in readChapterNumbers },
+            maxPerManga,
+        )
     }
 
     /**
@@ -99,3 +105,7 @@ internal fun shouldAutoDownloadNewChapters(
     globalEnabled: Boolean,
     categoryAllowed: Boolean,
 ): Boolean = isFavorite && (selected || (globalEnabled && categoryAllowed))
+
+/** Preserve the update job's newest-first order, and never download older backlog automatically. */
+internal fun <T> limitNewChapterDownloads(chapters: List<T>, maximum: Int): List<T> =
+    if (maximum <= 0) chapters else chapters.take(maximum)

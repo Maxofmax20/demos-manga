@@ -39,6 +39,8 @@ fun LibraryToolbar(
     onClickFilter: () -> Unit,
     onClickRefresh: () -> Unit,
     onClickGlobalUpdate: () -> Unit,
+    onClickContinueReading: () -> Unit,
+    onClickSmartDownloads: () -> Unit,
     onClickOpenRandomManga: () -> Unit,
     onClickSyncNow: () -> Unit,
     // SY -->
@@ -64,6 +66,8 @@ fun LibraryToolbar(
         onClickFilter = onClickFilter,
         onClickRefresh = onClickRefresh,
         onClickGlobalUpdate = onClickGlobalUpdate,
+        onClickContinueReading = onClickContinueReading,
+        onClickSmartDownloads = onClickSmartDownloads,
         onClickOpenRandomManga = onClickOpenRandomManga,
         onClickSyncNow = onClickSyncNow,
         // SY -->
@@ -84,6 +88,8 @@ private fun LibraryRegularToolbar(
     onClickFilter: () -> Unit,
     onClickRefresh: () -> Unit,
     onClickGlobalUpdate: () -> Unit,
+    onClickContinueReading: () -> Unit,
+    onClickSmartDownloads: () -> Unit,
     onClickOpenRandomManga: () -> Unit,
     onClickSyncNow: () -> Unit,
     // SY -->
@@ -124,6 +130,14 @@ private fun LibraryRegularToolbar(
                         icon = Icons.Outlined.FilterList,
                         iconTint = filterTint,
                         onClick = onClickFilter,
+                    ),
+                    AppBar.OverflowAction(
+                        title = "Continue Reading",
+                        onClick = onClickContinueReading,
+                    ),
+                    AppBar.OverflowAction(
+                        title = "Smart Downloads",
+                        onClick = onClickSmartDownloads,
                     ),
                     AppBar.OverflowAction(
                         title = stringResource(MR.strings.action_update_library),

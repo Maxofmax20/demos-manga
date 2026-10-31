@@ -1,5 +1,6 @@
 package mihon.domain.chapter.interactor
 
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -29,5 +30,16 @@ class AutoDownloadMangaTest {
     @Test
     fun `manga outside the library never auto-download`() {
         assertFalse(shouldAutoDownloadNewChapters(false, true, true, true))
+    }
+
+    @Test
+    fun `auto download cap keeps newest chapters and defaults to unlimited`() {
+        val newestFirst = listOf(9, 8, 7, 6)
+        assertEquals(newestFirst, limitNewChapterDownloads(newestFirst, 0))
+        assertEquals(newestFirst, limitNewChapterDownloads(newestFirst, -1))
+        assertEquals(listOf(9), limitNewChapterDownloads(newestFirst, 1))
+        assertEquals(listOf(9, 8, 7), limitNewChapterDownloads(newestFirst, 3))
+        assertEquals(newestFirst, limitNewChapterDownloads(newestFirst, 10))
+        assertEquals(emptyList<Int>(), limitNewChapterDownloads(emptyList<Int>(), 2))
     }
 }

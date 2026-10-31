@@ -52,6 +52,7 @@ import eu.kanade.presentation.components.NestedMenuItem
 import eu.kanade.presentation.theme.colorscheme.AndroidViewColorScheme
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.databinding.DownloadListBinding
+import eu.kanade.tachiyomi.ui.smart.SmartDownloadsScreen
 import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.i18n.MR
@@ -197,8 +198,21 @@ object DownloadQueueScreen : Screen() {
                                         onClick = { sortExpanded = true },
                                     ),
                                     AppBar.OverflowAction(
+                                        title = "Smart Downloads settings",
+                                        onClick = { navigator.push(SmartDownloadsScreen) },
+                                    ),
+                                    AppBar.OverflowAction(
                                         title = stringResource(MR.strings.action_cancel_all),
                                         onClick = { screenModel.clearQueue() },
+                                    ),
+                                ),
+                            )
+                        } else {
+                            AppBarActions(
+                                persistentListOf(
+                                    AppBar.OverflowAction(
+                                        title = "Smart Downloads settings",
+                                        onClick = { navigator.push(SmartDownloadsScreen) },
                                     ),
                                 ),
                             )

@@ -53,6 +53,8 @@ import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.ui.smart.SmartContinueReadingScreen
+import eu.kanade.tachiyomi.ui.smart.SmartDownloadsScreen
 import eu.kanade.tachiyomi.util.system.toast
 import exh.favorites.FavoritesSyncStatus
 import exh.recs.RecommendsScreen
@@ -160,6 +162,8 @@ data object LibraryTab : Tab {
                     onClickFilter = screenModel::showSettingsDialog,
                     onClickRefresh = { onClickRefresh(state.activeCategory) },
                     onClickGlobalUpdate = { onClickRefresh(null) },
+                    onClickContinueReading = { navigator.push(SmartContinueReadingScreen) },
+                    onClickSmartDownloads = { navigator.push(SmartDownloadsScreen) },
                     onClickOpenRandomManga = {
                         scope.launch {
                             val randomItem = screenModel.getRandomLibraryItemForCurrentCategory()
