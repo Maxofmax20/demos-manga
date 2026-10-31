@@ -71,7 +71,7 @@ object SmartDownloadsScreen : Screen() {
         val wifiOnly by remember(preferences, scope) { preferences.downloadOnlyOverWifi().asState(scope) }
         val limit by remember(preferences, scope) { preferences.autoDownloadChapterLimit().asState(scope) }
         val queue by downloadManager.queueState.collectAsState()
-        val isRunning by downloadManager.isDownloaderRunning.collectAsState()
+        val isRunning by downloadManager.isDownloaderRunning.collectAsState(initial = false)
 
         var showAll by remember { mutableStateOf(false) }
         var search by remember { mutableStateOf("") }
