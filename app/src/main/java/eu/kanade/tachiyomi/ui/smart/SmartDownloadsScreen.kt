@@ -21,8 +21,10 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -37,6 +39,7 @@ import eu.kanade.core.preference.asState
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.data.download.DownloadManager
+import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.source.isLocalOrStub
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
@@ -71,6 +74,12 @@ object SmartDownloadsScreen : Screen() {
         val wifiOnly by remember(preferences, scope) { preferences.downloadOnlyOverWifi().asState(scope) }
         val limit by remember(preferences, scope) { preferences.autoDownloadChapterLimit().asState(scope) }
         val queue by downloadManager.queueState.collectAsState()
+        var queueRevision by remember { mutableIntStateOf(0) }
+        LaunchedEffect(downloadManager) {
+            downloadManager.statusFlow().collect { queueRevision++ }
+        }
+        val queueByManga = remember(queue, queueRevision) { queue.groupBy { it.manga.id } }
+        val failed = remember(queue, queueRevision) { queue.count { it.status == Download.State.ERROR } }
         val isRunning by downloadManager.isDownloaderRunning.collectAsState(initial = false)
 
         var showAll by remember { mutableStateOf(false) }
@@ -90,9 +99,11 @@ object SmartDownloadsScreen : Screen() {
         }
         val configured = library.count { it.id.toString() in selectedIds }
         val pending = queue.size
-        val freeStorageBytes = remember {
-            runCatching { StatFs(context.filesDir.absolutePath).availableBytes }.getOrNull()
+        var freeStorageBytes by remember {
+            mutableStateOf(runCatching { StatFs(context.filesDir.absolutePath).availableBytes }.getOrNull())
         }
+        val storageBytes = freeStorageBytes
+        val lowStorage = freeStorageBytes?.let { it < 1024L * 1024L * 1024L } == true
 
         Scaffold(
             topBar = { AppBar(title = "Smart Downloads", navigateUp = navigator::pop) },
@@ -105,24 +116,36 @@ object SmartDownloadsScreen : Screen() {
                     Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                         Text("Auto-download favorites", style = MaterialTheme.typography.headlineSmall)
                         Text(
-                            "$configured selected titles • $pending queued chapters",
+                            "$configured selected titles • $pending queued • $failed failed",
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         Text(
                             "Only newly discovered chapters are queued. Existing downloads and reading progress stay untouched.",
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        if (freeStorageBytes != null) {
+                        if (storageBytes != null) {
                             Text(
-                                "Free device storage: " + (freeStorageBytes / (1024L * 1024L)) + " MB",
+                                "Free device storage: " + (storageBytes / (1024L * 1024L)) + " MB",
                                 style = MaterialTheme.typography.bodySmall,
                             )
-                            if (freeStorageBytes < 1024L * 1024L * 1024L) {
+                            if (lowStorage) {
                                 Text(
-                                    "Storage is running low. Review downloads before starting a large update.",
+                                    "Storage is running low. The downloader also checks available space before saving chapters.",
                                     color = MaterialTheme.colorScheme.error,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = {
+                                freeStorageBytes = runCatching {
+                                    StatFs(context.filesDir.absolutePath).availableBytes
+                                }.getOrNull()
+                            }) { Text("Refresh storage") }
+                            if (lowStorage && isRunning) {
+                                TextButton(onClick = { downloadManager.pauseDownloads() }) {
+                                    Text("Pause downloads")
+                                }
                             }
                         }
                     }
@@ -218,20 +241,35 @@ object SmartDownloadsScreen : Screen() {
                     items(visible, key = { it.id }) { entry ->
                         val checked = entry.id.toString() in selectedIds
                         val available = !sourceManager.getOrStub(entry.manga.source).isLocalOrStub()
+                        val titleQueue = queueByManga[entry.id].orEmpty()
+                        val summary = summarizeDownloadStates(titleQueue.map { it.status })
                         ListItem(
                             headlineContent = {
                                 Text(entry.manga.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             },
                             supportingContent = {
-                                Text(
-                                    if (!available) {
-                                        "Source not installed or local: auto-download unavailable"
-                                    } else if (checked) {
-                                        "Auto-download enabled • " + entry.unreadCount.coerceAtLeast(0) + " unread"
-                                    } else {
-                                        "Not selected"
-                                    },
-                                )
+                                Column {
+                                    Text(
+                                        if (!available) {
+                                            "Source not installed or local: auto-download unavailable"
+                                        } else if (checked) {
+                                            "Auto-download enabled • " + entry.unreadCount.coerceAtLeast(0) + " unread"
+                                        } else {
+                                            "Not selected"
+                                        },
+                                    )
+                                    if (summary.total > 0) {
+                                        Text(
+                                            "${summary.total} queued • ${summary.active} downloading • ${summary.failed} failed",
+                                            color = if (summary.failed > 0) {
+                                                MaterialTheme.colorScheme.error
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            },
+                                            style = MaterialTheme.typography.labelSmall,
+                                        )
+                                    }
+                                }
                             },
                             leadingContent = {
                                 Checkbox(
@@ -282,3 +320,11 @@ private fun setSelected(preferences: DownloadPreferences, mangaId: Long, enabled
         if (enabled) existing + id else existing - id
     }
 }
+
+internal data class DownloadQueueSummary(val total: Int, val active: Int, val failed: Int)
+
+internal fun summarizeDownloadStates(states: List<Download.State>): DownloadQueueSummary = DownloadQueueSummary(
+    total = states.size,
+    active = states.count { it == Download.State.DOWNLOADING },
+    failed = states.count { it == Download.State.ERROR },
+)
