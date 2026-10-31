@@ -34,12 +34,13 @@ class AutoDownloadMangaTest {
 
     @Test
     fun `auto download cap keeps newest chapters and defaults to unlimited`() {
-        val newestFirst = listOf(9, 8, 7, 6)
-        assertEquals(newestFirst, limitNewChapterDownloads(newestFirst, 0))
-        assertEquals(newestFirst, limitNewChapterDownloads(newestFirst, -1))
-        assertEquals(listOf(9), limitNewChapterDownloads(newestFirst, 1))
-        assertEquals(listOf(9, 8, 7), limitNewChapterDownloads(newestFirst, 3))
-        assertEquals(newestFirst, limitNewChapterDownloads(newestFirst, 10))
-        assertEquals(emptyList<Int>(), limitNewChapterDownloads(emptyList<Int>(), 2))
+        // The update job delivers these in oldest-first queue order.
+        val oldestFirst = listOf(4, 3, 2, 1, 0)
+        assertEquals(oldestFirst, limitNewChapterDownloads(oldestFirst, 0) { it.toLong() })
+        assertEquals(oldestFirst, limitNewChapterDownloads(oldestFirst, -1) { it.toLong() })
+        assertEquals(listOf(0), limitNewChapterDownloads(oldestFirst, 1) { it.toLong() })
+        assertEquals(listOf(2, 1, 0), limitNewChapterDownloads(oldestFirst, 3) { it.toLong() })
+        assertEquals(oldestFirst, limitNewChapterDownloads(oldestFirst, 10) { it.toLong() })
+        assertEquals(emptyList<Int>(), limitNewChapterDownloads(emptyList<Int>(), 2) { it.toLong() })
     }
 }
