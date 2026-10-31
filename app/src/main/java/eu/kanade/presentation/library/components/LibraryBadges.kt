@@ -42,7 +42,7 @@ internal fun UnreadBadge(count: Long) {
 }
 
 @Composable
-internal fun LanguageBadge(
+fun LanguageBadge(
     isLocal: Boolean,
     sourceLanguage: String,
     // KMK -->
