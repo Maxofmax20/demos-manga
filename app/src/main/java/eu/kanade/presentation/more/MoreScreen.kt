@@ -79,6 +79,7 @@ fun MoreScreen(
     onClickHistory: () -> Unit,
     // KMK -->
     onClickLibraryUpdateErrors: () -> Unit,
+    onClickCinemaLibrary: () -> Unit,
     // KMK <--
 ) {
     val uriHandler = LocalUriHandler.current
@@ -191,6 +192,14 @@ fun MoreScreen(
                     title = stringResource(KMR.strings.option_label_library_update_errors),
                     icon = Icons.Outlined.NewReleases,
                     onPreferenceClick = onClickLibraryUpdateErrors,
+                )
+            }
+            item {
+                TextPreferenceWidget(
+                    title = stringResource(KMR.strings.option_label_cinema_library),
+                    subtitle = stringResource(KMR.strings.option_summary_cinema_library),
+                    icon = Icons.Outlined.QueryStats,
+                    onPreferenceClick = onClickCinemaLibrary,
                 )
             }
             // KMK <--

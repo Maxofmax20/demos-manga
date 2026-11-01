@@ -252,4 +252,7 @@
     <!-- KMK -->
     <string name="mal_publication_reference">Publication: %1$s · MyAnimeList</string>
     <!-- KMK -->
+    <!-- KMK -->
+    <string name="option_label_cinema_library">Cinema Library</string>
+    <string name="option_summary_cinema_library">Movies, TV, anime and Trakt progress in one app</string>
 </resources>

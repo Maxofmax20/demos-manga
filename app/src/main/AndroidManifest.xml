@@ -62,6 +62,13 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Tachiyomi">
 
+        <!-- KMK -->
+        <activity
+            android:name=".ui.cinema.CinemaLibraryActivity"
+            android:exported="false"
+            android:label="@string/demos_cinema_label" />
+        <!-- KMK -->
+
         <activity
             android:name=".ui.main.MainActivity"
             android:exported="true"
