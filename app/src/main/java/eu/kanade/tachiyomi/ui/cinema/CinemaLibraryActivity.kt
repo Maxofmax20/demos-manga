@@ -3,8 +3,8 @@ package eu.kanade.tachiyomi.ui.cinema
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.os.Bundle
 import android.graphics.Color
+import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.webkit.CookieManager
@@ -42,12 +42,15 @@ class CinemaLibraryActivity : Activity() {
             setOnClickListener { finish() }
         }
         header.addView(back)
-        header.addView(TextView(this).apply {
-            text = "Cinema Library"
-            textSize = 18f
-            setTextColor(Color.WHITE)
-            setPadding(16, 0, 8, 0)
-        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        header.addView(
+            TextView(this).apply {
+                text = "Cinema Library"
+                textSize = 18f
+                setTextColor(Color.WHITE)
+                setPadding(16, 0, 8, 0)
+            },
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
+        )
         val reload = Button(this).apply {
             text = "Refresh"
             setOnClickListener { browser.reload() }
@@ -89,7 +92,9 @@ class CinemaLibraryActivity : Activity() {
                     return true
                 }
                 override fun onReceivedError(
-                    view: WebView?, request: WebResourceRequest?, error: android.webkit.WebResourceError?,
+                    view: WebView?,
+                    request: WebResourceRequest?,
+                    error: android.webkit.WebResourceError?,
                 ) {
                     if (request?.isForMainFrame == true) {
                         status.text = "Cinema is unavailable. Use Refresh to retry; Manga data is safe."
@@ -105,13 +110,17 @@ class CinemaLibraryActivity : Activity() {
         CookieManager.getInstance().setAcceptCookie(true)
         root.addView(browser, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
-        if (savedInstanceState != null) browser.restoreState(savedInstanceState)
-        else browser.loadUrl("https://cinema.demos25.me/")
+        if (savedInstanceState != null) {
+            browser.restoreState(savedInstanceState)
+        } else {
+            browser.loadUrl("https://cinema.demos25.me/")
+        }
     }
     override fun onSaveInstanceState(outState: Bundle) {
         browser.saveState(outState)
         super.onSaveInstanceState(outState)
     }
+
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (browser.canGoBack()) browser.goBack() else super.onBackPressed()
