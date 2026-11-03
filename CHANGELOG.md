@@ -1,3 +1,9 @@
+## Demos Manga v0.8.1 — Restore Classic Library Update Banner
+
+- Restores the exact v0.7.1 **Updating library** progress banner: the prominent colored bar with the animated circular progress indicator and percentage text.
+- Reverts only the v0.8.0 visual change to application-state banners; source diagnostics, Smart Downloads enhancements and all other v0.8.0 features are preserved.
+- No changes to background update logic, app notifications, download queue, manga library, reading history, database schema or saved data.
+
 ## Demos Manga v0.8.0 — Reliability & Polish
 
 - **Source Repair:** explicit per-source homepage checks with an eight-second network deadline and no automatic remote-site polling. Reports redirects, Discord redirects, blocked access and missing extensions without falsely claiming chapter pages work. Existing errors, retry and migration remain available.
