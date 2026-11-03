@@ -34,7 +34,11 @@ dependencyResolutionManagement {
     repositories {
         mavenCentral()
         google()
-        maven(url = "https://www.jitpack.io")
+        // Moko Graphics 0.10.0 and its Android variants are published on Maven Central.
+        // Exclude them from JitPack to avoid Gradle pinning transitive variants to an unavailable mirror.
+        maven(url = "https://www.jitpack.io") {
+            content { excludeGroup("dev.icerock.moko") }
+        }
     }
 }
 
