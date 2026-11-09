@@ -3,12 +3,10 @@ package eu.kanade.tachiyomi.data.sync.service
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-// KMK -->
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.AuthorizationResult
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
-// KMK <--
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential
 import com.google.api.client.http.InputStreamContent
 import com.google.api.client.http.javanet.NetHttpTransport
@@ -19,9 +17,7 @@ import com.google.api.services.drive.model.File
 import eu.kanade.domain.sync.SyncPreferences
 import eu.kanade.tachiyomi.data.backup.models.Backup
 import kotlinx.coroutines.launch
-// KMK -->
 import kotlinx.coroutines.suspendCancellableCoroutine
-// KMK <--
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
@@ -35,12 +31,10 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.PipedInputStream
 import java.io.PipedOutputStream
-// KMK -->
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-// KMK <--
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 class GoogleDriveSyncService(context: Context, json: Json, syncPreferences: SyncPreferences) : SyncService(
     context,

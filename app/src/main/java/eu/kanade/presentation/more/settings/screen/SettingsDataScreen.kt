@@ -1,14 +1,12 @@
 package eu.kanade.presentation.more.settings.screen
 
-// KMK -->
 import android.app.Activity
-import androidx.activity.result.IntentSenderRequest
-// KMK <--
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
