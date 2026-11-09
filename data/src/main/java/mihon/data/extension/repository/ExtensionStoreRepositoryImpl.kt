@@ -35,12 +35,26 @@ class ExtensionStoreRepositoryImpl(
         }
     }
 
+    // KMK -->
+    // Repair only the known, invalid Keiyoushi URL; do not rewrite user-added Yuzono stores.
+    private fun resolvedIndexUrl(url: String, name: String): String =
+        if (name.equals("Keiyoushi", ignoreCase = true) &&
+            url == "https://raw.githubusercontent.com/yuzono/manga-repo/repo/index.pb"
+        ) {
+            "https://github.com/keiyoushi/extensions/raw/repo/index.pb"
+        } else {
+            url
+        }
+    // KMK <--
+
     override suspend fun refreshAll() {
         try {
             handler.awaitList {
                 extension_storeQueries.getAll()
             }.forEach { store ->
-                service.fetch(store.index_url)
+                // KMK -->
+                service.fetch(resolvedIndexUrl(store.index_url, store.name))
+                    // KMK <--
                     .mapCatching {
                         handler.await {
                             upsert(it)
@@ -90,7 +104,16 @@ class ExtensionStoreRepositoryImpl(
                     // KMK <--
                     .map { store ->
                         async {
-                            service.getExtensions(store).onFailure {
+                            // KMK -->
+                            // Fetch from the corrected store even before refreshAll persists the migration.
+                            val resolvedUrl = resolvedIndexUrl(store.indexUrl, store.name)
+                            val activeStore = if (resolvedUrl != store.indexUrl) {
+                                store.copy(indexUrl = resolvedUrl, extensionListUrl = null)
+                            } else {
+                                store
+                            }
+                            service.getExtensions(activeStore).onFailure {
+                                // KMK <--
                                 this@ExtensionStoreRepositoryImpl.logcat(LogPriority.ERROR, it) {
                                     "Failed to fetch extensions for store '${store.name} (${store.indexUrl})'"
                                 }

@@ -1,10 +1,12 @@
 package eu.kanade.presentation.more.settings.screen
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -930,18 +932,63 @@ object SettingsDataScreen : SearchableSettings {
 
     @Composable
     private fun getGoogleDrivePreferences(): List<Preference> {
+        // KMK -->
         val context = LocalContext.current
-        val googleDriveSync = Injekt.get<GoogleDriveService>()
+        val googleDriveSync = remember { Injekt.get<GoogleDriveService>() }
+        val signInLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.StartIntentSenderForResult(),
+        ) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                runCatching { googleDriveSync.completeAuthorization(result.data) }
+                    .onSuccess {
+                        context.toast(SYMR.strings.google_drive_login_success, duration = 5000)
+                    }
+                    .onFailure {
+                        context.toast(
+                            context.stringResource(
+                                SYMR.strings.google_drive_login_failed,
+                                it.localizedMessage ?: "Authorization failed",
+                            ),
+                            duration = 5000,
+                        )
+                    }
+            }
+        }
         return listOf(
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(SYMR.strings.pref_google_drive_sign_in),
                 onClick = {
-                    val intent = googleDriveSync.getSignInIntent()
-                    context.startActivity(intent)
+                    googleDriveSync.requestAuthorization(
+                        onResolution = { pendingIntent ->
+                            runCatching {
+                                signInLauncher.launch(
+                                    IntentSenderRequest.Builder(pendingIntent.intentSender).build(),
+                                )
+                            }.onFailure {
+                                context.toast(
+                                    context.stringResource(
+                                        SYMR.strings.google_drive_login_failed,
+                                        it.localizedMessage ?: "Unable to open Google sign-in",
+                                    ),
+                                    duration = 5000,
+                                )
+                            }
+                        },
+                        onSuccess = {
+                            context.toast(SYMR.strings.google_drive_login_success, duration = 5000)
+                        },
+                        onFailure = { error ->
+                            context.toast(
+                                context.stringResource(SYMR.strings.google_drive_login_failed, error),
+                                duration = 5000,
+                            )
+                        },
+                    )
                 },
             ),
             getGoogleDrivePurge(),
         )
+        // KMK <--
     }
 
     @Composable

@@ -28,8 +28,8 @@ android {
     defaultConfig {
         applicationId = "me.demos25.manga"
 
-        versionCode = 20
-        versionName = "0.8.1"
+        versionCode = 21
+        versionName = "0.8.2"
 
         buildConfigField("String", "COMMIT_COUNT", "\"${getCommitCount()}\"")
         buildConfigField("String", "COMMIT_SHA", "\"${getGitSha()}\"")
@@ -340,6 +340,10 @@ dependencies {
 
     // Google drive
     implementation(sylibs.google.api.services.drive)
+    // KMK -->
+    // Native, scoped Google authorization without bundled client_secrets.json.
+    implementation("com.google.android.gms:play-services-auth:21.5.0")
+    // KMK <--
 
     // ZXing Android Embedded
     implementation(sylibs.zxing.android.embedded)
