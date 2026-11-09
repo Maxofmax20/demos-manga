@@ -340,6 +340,10 @@ dependencies {
 
     // Google drive
     implementation(sylibs.google.api.services.drive)
+    // KMK -->
+    // Native, scoped Google authorization without bundled client_secrets.json.
+    implementation("com.google.android.gms:play-services-auth:21.5.0")
+    // KMK <--
 
     // ZXing Android Embedded
     implementation(sylibs.zxing.android.embedded)
